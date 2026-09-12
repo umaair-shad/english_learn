@@ -1,0 +1,191 @@
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../database/prisma.service';
+
+export interface ActivityItemShape {
+  senseId: number;
+  entryId: number;
+  lemma: string;
+  normalizedLemma: string;
+  partOfSpeech: string;
+  displayForm: string | null;
+  position: number;
+  definition: string;
+  cefrLevels: string[];
+  frequencyRank: number | null;
+  categories: Array<{ code: string; name: string }>;
+  translations: Array<{
+    id: number;
+    text: string;
+    senseLabel: string | null;
+    matchMethod: string | null;
+    matchConfidence: string | null;
+  }>;
+  /** Real example sentences for the sense, in id order. */
+  examples: string[];
+}
+
+interface SenseRow {
+  senseId: bigint;
+  entryId: bigint;
+  lemma: string;
+  normalizedLemma: string;
+  partOfSpeech: string;
+  displayForm: string | null;
+  position: number;
+  definition: string;
+  cefrLevels: string[] | null;
+  frequencyRank: number | null;
+}
+
+interface TranslationRow {
+  vocabularySenseId: bigint;
+  id: bigint;
+  text: string;
+  senseLabel: string | null;
+  matchMethod: string | null;
+  matchConfidence: string | null;
+}
+
+interface CategoryRow {
+  vocabularySenseId: bigint;
+  code: string;
+  name: string;
+}
+
+interface ExampleRow {
+  vocabularySenseId: bigint;
+  text: string;
+}
+
+const SENSE_COLUMNS = Prisma.sql`
+SELECT
+  ai.vocabulary_sense_id AS "senseId",
+  s.vocabulary_entry_id  AS "entryId",
+  e.lemma,
+  e.normalized_lemma     AS "normalizedLemma",
+  e.part_of_speech       AS "partOfSpeech",
+  e.display_form         AS "displayForm",
+  ai.position,
+  s.definition,
+  (SELECT array_agg(DISTINCT c.level ORDER BY c.level)
+     FROM cefr_assignments c WHERE c.vocabulary_sense_id = s.id) AS "cefrLevels",
+  f.rank                 AS "frequencyRank"
+FROM activity_items ai
+JOIN vocabulary_senses s ON s.id = ai.vocabulary_sense_id
+JOIN vocabulary_entries e ON e.id = s.vocabulary_entry_id
+LEFT JOIN LATERAL (
+  SELECT MIN(fd.rank) AS rank FROM frequency_data fd WHERE fd.vocabulary_entry_id = e.id
+) f ON TRUE
+`;
+
+/**
+ * Loads the sense rows of an activity in positional order, together with PL
+ * translations and categories. Works inside a transaction or against the base
+ * client.
+ */
+export async function fetchActivitySenses(
+  db: Prisma.TransactionClient | PrismaService,
+  activityId: number,
+): Promise<ActivityItemShape[]> {
+  const rows = await db.$queryRaw<SenseRow[]>(
+    Prisma.sql`${SENSE_COLUMNS} WHERE ai.activity_id = ${activityId}
+      ORDER BY ai.position ASC`,
+  );
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.senseId);
+  const [translations, categories, examples] = await Promise.all([
+    db.$queryRaw<TranslationRow[]>(
+      Prisma.sql`SELECT
+          vocabulary_sense_id AS "vocabularySenseId",
+          id,
+          text,
+          sense_label AS "senseLabel",
+          match_method AS "matchMethod",
+          match_confidence AS "matchConfidence"
+        FROM translations
+        WHERE vocabulary_sense_id IN (${Prisma.join(ids)})
+          AND language = 'pl'
+        ORDER BY vocabulary_sense_id, id`,
+    ),
+    db.$queryRaw<CategoryRow[]>(
+      Prisma.sql`SELECT
+          vca.vocabulary_sense_id AS "vocabularySenseId",
+          c.code,
+          c.name
+        FROM vocabulary_category_assignments vca
+        JOIN categories c ON c.id = vca.category_id
+        WHERE vca.vocabulary_sense_id IN (${Prisma.join(ids)})
+        ORDER BY vca.vocabulary_sense_id, c.code`,
+    ),
+    db.$queryRaw<ExampleRow[]>(
+      Prisma.sql`SELECT
+          vocabulary_sense_id AS "vocabularySenseId",
+          text
+        FROM example_sentences
+        WHERE vocabulary_sense_id IN (${Prisma.join(ids)})
+        ORDER BY vocabulary_sense_id, id`,
+    ),
+  ]);
+
+  const translationMap = new Map<bigint, ActivityItemShape['translations']>();
+  for (const t of translations) {
+    const list = translationMap.get(t.vocabularySenseId) ?? [];
+    list.push({
+      id: Number(t.id),
+      text: t.text,
+      senseLabel: t.senseLabel,
+      matchMethod: t.matchMethod,
+      matchConfidence: t.matchConfidence,
+    });
+    translationMap.set(t.vocabularySenseId, list);
+  }
+  const categoryMap = new Map<bigint, ActivityItemShape['categories']>();
+  for (const c of categories) {
+    const list = categoryMap.get(c.vocabularySenseId) ?? [];
+    list.push({ code: c.code, name: c.name });
+    categoryMap.set(c.vocabularySenseId, list);
+  }
+  const exampleMap = new Map<bigint, string[]>();
+  for (const e of examples) {
+    const list = exampleMap.get(e.vocabularySenseId) ?? [];
+    list.push(e.text);
+    exampleMap.set(e.vocabularySenseId, list);
+  }
+
+  return rows.map((row) => {
+    const key = row.senseId;
+    return {
+      senseId: Number(key),
+      entryId: Number(row.entryId),
+      lemma: row.lemma,
+      normalizedLemma: row.normalizedLemma,
+      partOfSpeech: row.partOfSpeech,
+      displayForm: row.displayForm,
+      position: row.position,
+      definition: row.definition,
+      cefrLevels: row.cefrLevels ?? [],
+      frequencyRank:
+        row.frequencyRank === null ? null : Number(row.frequencyRank),
+      categories: categoryMap.get(key) ?? [],
+      translations: translationMap.get(key) ?? [],
+      examples: exampleMap.get(key) ?? [],
+    };
+  });
+}
+
+/** True if the sense belongs to the activity (activity_items membership). */
+export async function senseIsInActivity(
+  db: Prisma.TransactionClient | PrismaService,
+  activityId: number,
+  senseId: number,
+): Promise<boolean> {
+  const row = await db.activity_items.findFirst({
+    where: {
+      activity_id: BigInt(activityId),
+      vocabulary_sense_id: BigInt(senseId),
+    },
+    select: { id: true },
+  });
+  return row !== null;
+}

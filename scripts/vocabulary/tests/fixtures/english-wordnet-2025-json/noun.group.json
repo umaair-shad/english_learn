@@ -1,0 +1,13 @@
+{
+  "08437235-n": {
+    "definition": ["a financial institution that accepts deposits and channels the money into lending activities"],
+    "members": ["depository financial institution", "bank", "banking company"],
+    "partOfSpeech": "n",
+    "hypernym": ["08071473-n"]
+  },
+  "08071473-n": {
+    "definition": ["an organization that carries on commercial activities"],
+    "members": ["institution"],
+    "partOfSpeech": "n"
+  }
+}

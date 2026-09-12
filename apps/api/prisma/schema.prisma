@@ -1,0 +1,607 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model categories {
+  id                              BigInt                            @id @default(autoincrement())
+  code                            String                            @unique @db.VarChar(64)
+  name                            String
+  parent_id                       BigInt?
+  categories                      categories?                       @relation("categoriesTocategories", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_categories                categories[]                      @relation("categoriesTocategories")
+  vocabulary_category_assignments vocabulary_category_assignments[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cefr_assignments {
+  id                  BigInt             @id @default(autoincrement())
+  vocabulary_sense_id BigInt
+  level               String             @db.VarChar(4)
+  source_id           BigInt
+  match_method        String             @db.VarChar(64)
+  confidence          String             @db.VarChar(16)
+  requires_review     Boolean            @default(false)
+  vocabulary_sources  vocabulary_sources @relation(fields: [source_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vocabulary_senses   vocabulary_senses  @relation(fields: [vocabulary_sense_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vocabulary_sense_id, source_id, level])
+  @@index([level], map: "idx_cefr_level")
+}
+
+model example_sentences {
+  id                  BigInt            @id @default(autoincrement())
+  vocabulary_sense_id BigInt
+  text                String
+  source              String            @default("wiktextract") @db.VarChar(32)
+  verification        String?
+  vocabulary_senses   vocabulary_senses @relation(fields: [vocabulary_sense_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vocabulary_sense_id, text])
+}
+
+model frequency_data {
+  id                    BigInt             @id @default(autoincrement())
+  vocabulary_entry_id   BigInt
+  rank                  Int?
+  sfi                   Decimal?           @db.Decimal(6, 2)
+  frequency_per_million Decimal?           @db.Decimal(12, 2)
+  source_id             BigInt
+  vocabulary_sources    vocabulary_sources @relation(fields: [source_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vocabulary_entries    vocabulary_entries @relation(fields: [vocabulary_entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vocabulary_entry_id, source_id])
+  @@index([rank], map: "idx_frequency_rank")
+}
+
+model provenance_records {
+  id                     BigInt                  @id @default(autoincrement())
+  entity_type            String                  @db.VarChar(32)
+  entity_key             String
+  field_name             String                  @db.VarChar(64)
+  source_id              BigInt
+  source_record_id       String?
+  match_method           String?                 @db.VarChar(32)
+  match_confidence       String?                 @db.VarChar(16)
+  import_run_id          BigInt?
+  imported_at            DateTime                @default(now()) @db.Timestamptz(6)
+  vocabulary_import_runs vocabulary_import_runs? @relation(fields: [import_run_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vocabulary_sources     vocabulary_sources      @relation(fields: [source_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([entity_type, entity_key, field_name, source_id, source_record_id, import_run_id])
+}
+
+model quality_flags {
+  id                     BigInt                  @id @default(autoincrement())
+  entity_type            String                  @db.VarChar(32)
+  entity_key             String?
+  issue_code             String                  @db.VarChar(64)
+  severity               String                  @db.VarChar(16)
+  message                String?
+  import_run_id          BigInt?
+  vocabulary_import_runs vocabulary_import_runs? @relation(fields: [import_run_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([entity_type, entity_key], map: "idx_quality_entity")
+}
+
+model reconcile_conflicts {
+  id                     BigInt                  @id @default(autoincrement())
+  field_name             String                  @db.VarChar(32)
+  entity_key             String
+  sources                String[]
+  values                 String[]
+  resolution             String
+  requires_review        Boolean                 @default(true)
+  import_run_id          BigInt?
+  vocabulary_import_runs vocabulary_import_runs? @relation(fields: [import_run_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([field_name, entity_key, resolution, import_run_id])
+}
+
+model semantic_relationships {
+  id                                                                       BigInt             @id @default(autoincrement())
+  source_synset_id                                                         String             @db.VarChar(24)
+  relationship_type                                                        String             @db.VarChar(32)
+  target_synset_id                                                         String             @db.VarChar(24)
+  source_id                                                                BigInt
+  vocabulary_sources                                                       vocabulary_sources @relation(fields: [source_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  wordnet_synsets_semantic_relationships_source_synset_idTowordnet_synsets wordnet_synsets    @relation("semantic_relationships_source_synset_idTowordnet_synsets", fields: [source_synset_id], references: [synset_id], onDelete: NoAction, onUpdate: NoAction)
+  wordnet_synsets_semantic_relationships_target_synset_idTowordnet_synsets wordnet_synsets    @relation("semantic_relationships_target_synset_idTowordnet_synsets", fields: [target_synset_id], references: [synset_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([source_synset_id, relationship_type, target_synset_id])
+  @@index([source_synset_id], map: "idx_rels_source")
+  @@index([target_synset_id], map: "idx_rels_target")
+}
+
+model sense_synsets {
+  id                  BigInt            @id @default(autoincrement())
+  vocabulary_sense_id BigInt
+  synset_id           String            @db.VarChar(24)
+  match_method        String            @db.VarChar(64)
+  confidence          String            @db.VarChar(16)
+  score               Decimal?          @db.Decimal(5, 3)
+  wordnet_synsets     wordnet_synsets   @relation(fields: [synset_id], references: [synset_id], onDelete: NoAction, onUpdate: NoAction)
+  vocabulary_senses   vocabulary_senses @relation(fields: [vocabulary_sense_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vocabulary_sense_id, synset_id])
+  @@index([synset_id], map: "idx_sense_synsets_synset")
+}
+
+model translations {
+  id                  BigInt            @id @default(autoincrement())
+  vocabulary_sense_id BigInt
+  language            String            @default("pl") @db.VarChar(8)
+  text                String
+  normalized_text     String
+  sense_label         String?
+  match_method        String?           @db.VarChar(32)
+  match_confidence    String?           @db.VarChar(16)
+  vocabulary_senses   vocabulary_senses @relation(fields: [vocabulary_sense_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vocabulary_sense_id, language, normalized_text])
+  @@index([normalized_text], map: "idx_translations_normalized_text")
+}
+
+model vocabulary_category_assignments {
+  id                  BigInt              @id @default(autoincrement())
+  vocabulary_sense_id BigInt
+  category_id         BigInt
+  source_id           BigInt?
+  confidence          String?             @db.VarChar(16)
+  categories          categories          @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vocabulary_sources  vocabulary_sources? @relation(fields: [source_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vocabulary_senses   vocabulary_senses   @relation(fields: [vocabulary_sense_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vocabulary_sense_id, category_id], map: "vocabulary_category_assignmen_vocabulary_sense_id_category__key")
+}
+
+model vocabulary_entries {
+  id                BigInt              @id @default(autoincrement())
+  lemma             String
+  normalized_lemma  String
+  part_of_speech    String              @db.VarChar(64)
+  language          String              @default("en") @db.VarChar(8)
+  display_form      String?
+  wikidata_qid      String?             @db.VarChar(32)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  frequency_data    frequency_data[]
+  vocabulary_senses vocabulary_senses[]
+
+  @@unique([normalized_lemma, part_of_speech])
+  @@index([normalized_lemma], map: "idx_entries_normalized_word")
+}
+
+model vocabulary_import_runs {
+  id                  BigInt                @id @default(autoincrement())
+  source_id           BigInt
+  fingerprint         String?
+  started_at          DateTime              @default(now()) @db.Timestamptz(6)
+  completed_at        DateTime?             @db.Timestamptz(6)
+  status              String                @default("running") @db.VarChar(16)
+  record_count        BigInt?               @default(0)
+  provenance_records  provenance_records[]
+  quality_flags       quality_flags[]
+  reconcile_conflicts reconcile_conflicts[]
+  vocabulary_sources  vocabulary_sources    @relation(fields: [source_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([source_id, fingerprint])
+}
+
+model vocabulary_senses {
+  id                              BigInt                            @id @default(autoincrement())
+  vocabulary_entry_id             BigInt
+  position                        Int
+  lemma                           String
+  normalized_lemma                String
+  part_of_speech                  String                            @db.VarChar(64)
+  definition                      String
+  normalized_definition           String
+  raw_definition                  String?
+  tags                            String[]
+  sense_id_hint                   String?
+  wikidata_qid                    String?                           @db.VarChar(32)
+  source_record_id                String?
+  created_at                      DateTime                          @default(now()) @db.Timestamptz(6)
+  activity_events                 activity_events[]
+  activity_items                  activity_items[]
+  assignment_items                assignment_items[]
+  cefr_assignments                cefr_assignments[]
+  example_sentences               example_sentences[]
+  sense_synsets                   sense_synsets[]
+  student_vocabulary_states       student_vocabulary_states[]
+  translations                    translations[]
+  vocabulary_category_assignments vocabulary_category_assignments[]
+  vocabulary_review_history       vocabulary_review_history[]
+  vocabulary_entries              vocabulary_entries                @relation(fields: [vocabulary_entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vocabulary_set_items            vocabulary_set_items[]
+
+  @@unique([vocabulary_entry_id, position])
+  @@index([vocabulary_entry_id], map: "idx_senses_entry")
+  @@index([part_of_speech], map: "idx_senses_pos")
+}
+
+model vocabulary_sources {
+  id                              BigInt                            @id @default(autoincrement())
+  name                            String                            @unique @db.VarChar(64)
+  version                         String?                           @db.VarChar(64)
+  url                             String?
+  license                         String?
+  attribution                     String?
+  imported_at                     DateTime                          @default(now()) @db.Timestamptz(6)
+  cefr_assignments                cefr_assignments[]
+  frequency_data                  frequency_data[]
+  provenance_records              provenance_records[]
+  semantic_relationships          semantic_relationships[]
+  vocabulary_category_assignments vocabulary_category_assignments[]
+  vocabulary_import_runs          vocabulary_import_runs[]
+  wordnet_synsets                 wordnet_synsets[]
+}
+
+model wordnet_synsets {
+  id                                                                              BigInt                   @id @default(autoincrement())
+  synset_id                                                                       String                   @unique @db.VarChar(24)
+  part_of_speech                                                                  String                   @db.VarChar(16)
+  definition                                                                      String
+  members                                                                         String[]                 @default([])
+  ili                                                                             String?                  @db.VarChar(16)
+  wikidata_qid                                                                    String?
+  source_id                                                                       BigInt
+  semantic_relationships_semantic_relationships_source_synset_idTowordnet_synsets semantic_relationships[] @relation("semantic_relationships_source_synset_idTowordnet_synsets")
+  semantic_relationships_semantic_relationships_target_synset_idTowordnet_synsets semantic_relationships[] @relation("semantic_relationships_target_synset_idTowordnet_synsets")
+  sense_synsets                                                                   sense_synsets[]
+  vocabulary_sources                                                              vocabulary_sources       @relation(fields: [source_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model student_access_tokens {
+  id           BigInt    @id @default(autoincrement())
+  student_id   BigInt
+  token_hash   String    @unique
+  token_prefix String
+  is_active    Boolean   @default(true)
+  expires_at   DateTime? @db.Timestamptz(6)
+  revoked_at   DateTime? @db.Timestamptz(6)
+  last_used_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  students     students  @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([student_id], map: "idx_student_access_tokens_student")
+}
+
+model activity_access_tokens {
+  id           BigInt             @id @default(autoincrement())
+  activity_id  BigInt
+  token_hash   String             @unique
+  token_prefix String
+  link_type    activity_link_type @default(PERMANENT)
+  is_active    Boolean            @default(true)
+  expires_at   DateTime?          @db.Timestamptz(6)
+  revoked_at   DateTime?          @db.Timestamptz(6)
+  consumed_at  DateTime?          @db.Timestamptz(6)
+  last_used_at DateTime?          @db.Timestamptz(6)
+  created_at   DateTime           @default(now()) @db.Timestamptz(6)
+  activities   activities         @relation(fields: [activity_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([activity_id], map: "idx_activity_access_tokens_activity")
+}
+
+model students {
+  id                        BigInt                      @id @default(autoincrement())
+  first_name                String                      @default("")
+  last_name                 String?
+  display_name              String
+  notes                     String?
+  is_active                 Boolean                     @default(true)
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  activities                activities[]
+  activity_events           activity_events[]
+  activity_sessions         activity_sessions[]
+  assignments               assignments[]
+  student_access_tokens     student_access_tokens[]
+  student_vocabulary_states student_vocabulary_states[]
+  vocabulary_review_history vocabulary_review_history[]
+}
+
+model teacher_accounts {
+  id              BigInt            @id @default(autoincrement())
+  email           String            @unique
+  password_hash   String
+  display_name    String            @default("")
+  is_active       Boolean           @default(true)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  last_login_at   DateTime?         @db.Timestamptz(6)
+  activities      activities[]
+  assignments     assignments[]
+  vocabulary_sets vocabulary_sets[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model student_vocabulary_states {
+  id                        BigInt                      @id @default(autoincrement())
+  student_id                BigInt
+  vocabulary_sense_id       BigInt
+  status                    learning_status             @default(ASSIGNED)
+  first_encountered_at      DateTime?                   @db.Timestamptz(6)
+  first_learned_at          DateTime?                   @db.Timestamptz(6)
+  last_reviewed_at          DateTime?                   @db.Timestamptz(6)
+  next_review_at            DateTime?                   @db.Timestamptz(6)
+  review_count              Int                         @default(0)
+  correct_count             Int                         @default(0)
+  incorrect_count           Int                         @default(0)
+  difficulty                Float?
+  stability                 Float?
+  retrievability            Float?
+  fsrs_state                Json?
+  lapses                    Int                         @default(0)
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  students                  students                    @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vocabulary_senses         vocabulary_senses           @relation(fields: [vocabulary_sense_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vocabulary_review_history vocabulary_review_history[]
+
+  @@unique([student_id, vocabulary_sense_id], map: "student_vocabulary_states_student_sense_key")
+  @@index([vocabulary_sense_id], map: "student_vocabulary_states_sense_idx")
+  @@index([student_id, next_review_at], map: "student_vocabulary_states_student_next_review_idx")
+  @@index([student_id, status], map: "student_vocabulary_states_student_status_idx")
+}
+
+model vocabulary_review_history {
+  id                          BigInt                    @id @default(autoincrement())
+  student_id                  BigInt
+  vocabulary_sense_id         BigInt
+  student_vocabulary_state_id BigInt
+  rating                      review_rating?
+  response_time_ms            Int?
+  previous_status             learning_status
+  new_status                  learning_status
+  previous_difficulty         Float?
+  new_difficulty              Float?
+  previous_stability          Float?
+  new_stability               Float?
+  previous_next_review_at     DateTime?                 @db.Timestamptz(6)
+  next_review_at              DateTime?                 @db.Timestamptz(6)
+  source_type                 String                    @default("manual") @db.VarChar(32)
+  source_id                   BigInt?
+  reviewed_at                 DateTime                  @default(now()) @db.Timestamptz(6)
+  created_at                  DateTime                  @default(now()) @db.Timestamptz(6)
+  students                    students                  @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  student_vocabulary_states   student_vocabulary_states @relation(fields: [student_vocabulary_state_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vocabulary_senses           vocabulary_senses         @relation(fields: [vocabulary_sense_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([vocabulary_sense_id], map: "vocabulary_review_history_sense_idx")
+  @@index([student_vocabulary_state_id, reviewed_at(sort: Desc)], map: "vocabulary_review_history_state_idx")
+  @@index([student_id, vocabulary_sense_id, reviewed_at(sort: Desc)], map: "vocabulary_review_history_student_sense_idx")
+}
+
+model assignment_items {
+  id                  BigInt                 @id @default(autoincrement())
+  assignment_id       BigInt
+  vocabulary_sense_id BigInt
+  source_type         assignment_source_type @default(MANUAL)
+  source_set_id       BigInt?
+  created_at          DateTime               @default(now()) @db.Timestamptz(6)
+  assignments         assignments            @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vocabulary_sets     vocabulary_sets?       @relation(fields: [source_set_id], references: [id], onUpdate: NoAction)
+  vocabulary_senses   vocabulary_senses      @relation(fields: [vocabulary_sense_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([assignment_id, vocabulary_sense_id], map: "assignment_items_assignment_sense_key")
+  @@index([vocabulary_sense_id], map: "assignment_items_sense_idx")
+  @@index([source_set_id], map: "assignment_items_set_idx")
+}
+
+model assignments {
+  id                    BigInt             @id @default(autoincrement())
+  student_id            BigInt
+  title                 String
+  description           String?
+  status                assignment_status  @default(DRAFT)
+  assigned_at           DateTime?          @db.Timestamptz(6)
+  due_at                DateTime?          @db.Timestamptz(6)
+  completed_at          DateTime?          @db.Timestamptz(6)
+  created_by_teacher_id BigInt?
+  created_at            DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime           @default(now()) @db.Timestamptz(6)
+  activities            activities[]
+  assignment_items      assignment_items[]
+  teacher_accounts      teacher_accounts?  @relation(fields: [created_by_teacher_id], references: [id], onUpdate: NoAction)
+  students              students           @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([student_id, due_at], map: "assignments_student_due_idx")
+  @@index([student_id, status], map: "assignments_student_status_idx")
+}
+
+model vocabulary_set_items {
+  id                  BigInt            @id @default(autoincrement())
+  vocabulary_set_id   BigInt
+  vocabulary_sense_id BigInt
+  position            Int?
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  vocabulary_senses   vocabulary_senses @relation(fields: [vocabulary_sense_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vocabulary_sets     vocabulary_sets   @relation(fields: [vocabulary_set_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([vocabulary_set_id, vocabulary_sense_id], map: "vocabulary_set_items_set_sense_key")
+  @@index([vocabulary_sense_id], map: "vocabulary_set_items_sense_idx")
+}
+
+model vocabulary_sets {
+  id                    BigInt                 @id @default(autoincrement())
+  name                  String
+  description           String?
+  is_active             Boolean                @default(true)
+  created_by_teacher_id BigInt?
+  created_at            DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime               @default(now()) @db.Timestamptz(6)
+  assignment_items      assignment_items[]
+  vocabulary_set_items  vocabulary_set_items[]
+  teacher_accounts      teacher_accounts?      @relation(fields: [created_by_teacher_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_by_teacher_id], map: "vocabulary_sets_created_by_idx")
+  @@index([name])
+}
+
+model activities {
+  id                BigInt              @id @default(autoincrement())
+  teacher_id        BigInt
+  student_id        BigInt
+  assignment_id     BigInt?
+  title             String
+  description       String?
+  activity_type     activity_type
+  status            activity_status     @default(DRAFT)
+  settings          Json?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  assignments       assignments?        @relation(fields: [assignment_id], references: [id], onUpdate: NoAction)
+  students          students            @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  teacher_accounts  teacher_accounts    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  activity_access_tokens activity_access_tokens[]
+  activity_events        activity_events[]
+  activity_items         activity_items[]
+  activity_sessions      activity_sessions[]
+
+  @@index([assignment_id], map: "activities_assignment_idx")
+  @@index([status])
+  @@index([student_id], map: "activities_student_idx")
+  @@index([teacher_id], map: "activities_teacher_idx")
+  @@index([activity_type], map: "activities_type_idx")
+}
+
+model activity_events {
+  id                  BigInt              @id @default(autoincrement())
+  session_id          BigInt
+  activity_id         BigInt
+  student_id          BigInt
+  vocabulary_sense_id BigInt?
+  event_type          activity_event_type
+  direction           String?             @db.VarChar(32)
+  response            String?
+  is_correct          Boolean?
+  response_time_ms    Int?
+  metadata            Json?
+  occurred_at         DateTime            @default(now()) @db.Timestamptz(6)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  activities          activities          @relation(fields: [activity_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  activity_sessions   activity_sessions   @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students            students            @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vocabulary_senses   vocabulary_senses?  @relation(fields: [vocabulary_sense_id], references: [id], onUpdate: NoAction)
+
+  @@index([vocabulary_sense_id], map: "activity_events_sense_idx")
+  @@index([session_id, occurred_at], map: "activity_events_session_time_idx")
+  @@index([student_id, occurred_at], map: "activity_events_student_time_idx")
+}
+
+model activity_items {
+  id                  BigInt            @id @default(autoincrement())
+  activity_id         BigInt
+  vocabulary_sense_id BigInt
+  position            Int
+  settings            Json?
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  activities          activities        @relation(fields: [activity_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vocabulary_senses   vocabulary_senses @relation(fields: [vocabulary_sense_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([activity_id, vocabulary_sense_id], map: "activity_items_activity_sense_key")
+  @@index([activity_id], map: "activity_items_activity_idx")
+  @@index([vocabulary_sense_id], map: "activity_items_sense_idx")
+}
+
+model activity_sessions {
+  id                 BigInt            @id @default(autoincrement())
+  activity_id        BigInt
+  student_id         BigInt
+  started_at         DateTime          @default(now()) @db.Timestamptz(6)
+  last_activity_at   DateTime          @default(now()) @db.Timestamptz(6)
+  finished_at        DateTime?         @db.Timestamptz(6)
+  paused_at          DateTime?         @db.Timestamptz(6)
+  status             session_status    @default(ACTIVE)
+  current_item_index Int?
+  total_items        Int               @default(0)
+  correct_count      Int               @default(0)
+  incorrect_count    Int               @default(0)
+  metadata           Json?
+  created_at         DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime          @default(now()) @db.Timestamptz(6)
+  activity_events    activity_events[]
+  activities         activities        @relation(fields: [activity_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students           students          @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([activity_id], map: "activity_sessions_activity_idx")
+  @@index([last_activity_at], map: "activity_sessions_last_activity")
+  @@index([status])
+  @@index([student_id], map: "activity_sessions_student_idx")
+}
+
+enum learning_status {
+  ASSIGNED
+  ENCOUNTERED
+  LEARNING
+  REVIEWING
+  MASTERED
+}
+
+enum review_rating {
+  AGAIN
+  HARD
+  GOOD
+  EASY
+}
+
+enum assignment_source_type {
+  MANUAL
+  VOCABULARY_SET
+}
+
+enum assignment_status {
+  DRAFT
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum activity_event_type {
+  ACTIVITY_STARTED
+  CARD_SHOWN
+  ANSWER_SUBMITTED
+  ANSWER_CORRECT
+  ANSWER_INCORRECT
+  MATCH_FOUND
+  MATCH_FAILED
+  QUESTION_COMPLETED
+  PAUSED
+  RESUMED
+  FINISHED
+}
+
+enum activity_status {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum activity_type {
+  FLASHCARDS
+  MEMORY
+  QUIZ
+  FILL_BLANK
+}
+
+enum session_status {
+  ACTIVE
+  PAUSED
+  FINISHED
+  ABANDONED
+}
+
+enum activity_link_type {
+  PERMANENT
+  EXPIRING
+  SINGLE_USE
+}

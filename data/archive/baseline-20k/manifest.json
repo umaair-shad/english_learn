@@ -1,0 +1,136 @@
+{
+  "extract_wiktextract": {
+    "status": "complete",
+    "summary": {
+      "retained": 20000,
+      "written": 20000,
+      "rejected_non_target": 0
+    },
+    "data_path": "E:\\fiver\\project_english\\data\\staging\\extract_wiktextract.jsonl"
+  },
+  "extract_cefr_j": {
+    "status": "complete",
+    "summary": {
+      "rows": 7799,
+      "written": 7799
+    },
+    "data_path": "E:\\fiver\\project_english\\data\\staging\\extract_cefr_j.jsonl"
+  },
+  "extract_octanove": {
+    "status": "complete",
+    "summary": {
+      "rows": 2136,
+      "written": 2136
+    },
+    "data_path": "E:\\fiver\\project_english\\data\\staging\\extract_octanove.jsonl"
+  },
+  "extract_wordnet": {
+    "status": "complete",
+    "summary": {
+      "entries": 135969,
+      "synsets": 107519,
+      "senses": 185129
+    },
+    "data_path": "E:\\fiver\\project_english\\data\\staging\\extract_wordnet_entries.jsonl"
+  },
+  "extract_ngsl": {
+    "status": "complete",
+    "summary": {
+      "rows": 2809,
+      "written": 2809
+    },
+    "data_path": "E:\\fiver\\project_english\\data\\staging\\extract_ngsl.jsonl"
+  },
+  "normalize": {
+    "status": "complete",
+    "summary": {
+      "wiktextract": {
+        "entries": 16760,
+        "duplicates": 5081
+      },
+      "canonical_cefr": {
+        "rows": 9935
+      },
+      "canonical_frequency": {
+        "rows": 2809
+      },
+      "canonical_wordnet_synsets": {
+        "rows": 107519
+      },
+      "canonical_wordnet_entries": {
+        "rows": 135969
+      }
+    },
+    "data_path": "E:\\fiver\\project_english\\data\\staging"
+  },
+  "reconcile": {
+    "status": "complete",
+    "summary": {
+      "entries": 16760,
+      "senses": 60657,
+      "cefr_assignments": 26176,
+      "cefr_conflicts": 33,
+      "frequency_entries": 3437,
+      "sense_synset_matches": 10084,
+      "semantic_relationships": 131098
+    },
+    "data_path": "E:\\fiver\\project_english\\data\\processed"
+  },
+  "validate": {
+    "status": "complete",
+    "summary": {
+      "total_entries": 16760,
+      "total_senses": 60657,
+      "senses_with_polish_translation": 12848,
+      "senses_with_cefr": 25796,
+      "entries_with_ngsl_frequency": 3437,
+      "senses_matched_to_wordnet": 10084,
+      "rejected_senses": 0,
+      "rejected_translations": 1178,
+      "conflicts": 33,
+      "quality_issues": 51,
+      "source_coverage": {
+        "wiktextract_senses": 60657,
+        "translations_wiktextract": 21063,
+        "cefr_cefr_j": 24444,
+        "cefr_octanove": 1732,
+        "frequency_ngsl_entries": 3437,
+        "wordnet_matches": 10084,
+        "wordnet_relationships": 131098,
+        "provenance_records": 81720
+      },
+      "validation": {
+        "issues": 51,
+        "errors": 17,
+        "warnings": 34
+      }
+    },
+    "data_path": null
+  },
+  "export": {
+    "status": "complete",
+    "summary": {
+      "rows": {
+        "csv": 60657,
+        "json": 60657
+      },
+      "formats": [
+        "csv",
+        "json"
+      ]
+    },
+    "data_path": null
+  },
+  "load": {
+    "status": "complete",
+    "summary": {
+      "status": "skipped",
+      "result": {
+        "skipped": true,
+        "run_id": 1,
+        "fingerprint": "d432955e0108c3f3"
+      }
+    },
+    "data_path": null
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "09236472-n": {
+    "definition": ["sloping land (especially the slope beside a body of water)"],
+    "members": ["bank"],
+    "partOfSpeech": "n",
+    "hypernym": ["09432390-n"]
+  },
+  "09432390-n": {
+    "definition": ["a land mass formed by geological forces"],
+    "members": ["land"],
+    "partOfSpeech": "n"
+  }
+}

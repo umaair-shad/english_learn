@@ -1,0 +1,22 @@
+{
+  "total_entries": 16760,
+  "total_senses": 60657,
+  "senses_with_polish_translation": 12848,
+  "senses_with_cefr": 25796,
+  "entries_with_ngsl_frequency": 3437,
+  "senses_matched_to_wordnet": 10084,
+  "rejected_senses": 0,
+  "rejected_translations": 1178,
+  "conflicts": 33,
+  "quality_issues": 51,
+  "source_coverage": {
+    "wiktextract_senses": 60657,
+    "translations_wiktextract": 21063,
+    "cefr_cefr_j": 24444,
+    "cefr_octanove": 1732,
+    "frequency_ngsl_entries": 3437,
+    "wordnet_matches": 10084,
+    "wordnet_relationships": 131098,
+    "provenance_records": 81720
+  }
+}

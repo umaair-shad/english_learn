@@ -1,0 +1,24 @@
+{
+  "02315835-v": {
+    "definition": ["put into a bank account"],
+    "members": ["deposit", "bank"],
+    "partOfSpeech": "v",
+    "hypernym": ["02204104-v"]
+  },
+  "02204104-v": {
+    "definition": ["transfer possession of something"],
+    "members": ["give"],
+    "partOfSpeech": "v"
+  },
+  "01945800-v": {
+    "definition": ["move fast by using one's feet"],
+    "members": ["run", "sprint"],
+    "partOfSpeech": "v",
+    "hypernym": ["01944700-v"]
+  },
+  "01944700-v": {
+    "definition": ["move so as to change position of a body"],
+    "members": ["move"],
+    "partOfSpeech": "v"
+  }
+}

@@ -1,0 +1,37 @@
+# Raw datasets - NEVER commit
+data/raw/
+
+# Intermediate pipeline data
+data/staging/
+data/processed/
+data/rejected/
+data/reports/
+data/exports/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.local
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+
+# PostgreSQL local data
+pgdata/
+backups/

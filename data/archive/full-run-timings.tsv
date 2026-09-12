@@ -1,0 +1,11 @@
+stage	elapsed	peak_rss_mb	peak_cpu_s	notes
+extract	00:05:13	13.5	0	
+normalize	00:05:56	13.5	0	
+reconcile	00:04:20	13.5	0	
+validate	00:04:08	13.3	0	
+export	00:03:15	13.4	0	
+report	00:04:47	13.5	0	
+normalize	00:05:53	13.4	0.2	
+validate	00:03:59	13.4	0.1	
+extract	00:05:17	13.3	0	
+normalize	00:07:56	13.3	0	

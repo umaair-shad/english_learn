@@ -1,0 +1,52 @@
+entity_type,entity_key,issue_code,severity,message
+entry,btw|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,ime|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,percent|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,nd|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,imo|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,on hold|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,after dark|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,at dark|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,before dark|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,per annum|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,at least|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,under one's thumb|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,against the grain|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,least|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,in spirit|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,like two peas in a pod|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+entry,on sale|prep phrase,invalid_pos,error,invalid POS 'prep phrase'
+translation,global,translation_unmatched,warning,1178 translations could not be attached to a sense
+conflict,abolish|verb,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,abundance|noun,conflicting_source_values,warning,"field=cefr_level values=['B1', 'C2'] resolution=all_claims_kept_for_review"
+conflict,abundant|adjective,conflicting_source_values,warning,"field=cefr_level values=['B1', 'C2'] resolution=all_claims_kept_for_review"
+conflict,accessibility|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,adorn|verb,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,agency|noun,conflicting_source_values,warning,"field=cefr_level values=['A2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,battery|noun,conflicting_source_values,warning,"field=cefr_level values=['A2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,calf|noun,conflicting_source_values,warning,"field=cefr_level values=['B1', 'C1'] resolution=all_claims_kept_for_review"
+conflict,cast|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,cast|verb,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,circuit|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,commission|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C1', 'C2'] resolution=all_claims_kept_for_review"
+conflict,curriculum|noun,conflicting_source_values,warning,"field=cefr_level values=['B1', 'C2'] resolution=all_claims_kept_for_review"
+conflict,deficit|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,dive|noun,conflicting_source_values,warning,"field=cefr_level values=['B1', 'C2'] resolution=all_claims_kept_for_review"
+conflict,drill|noun,conflicting_source_values,warning,"field=cefr_level values=['A2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,drive|noun,conflicting_source_values,warning,"field=cefr_level values=['A1', 'C1'] resolution=all_claims_kept_for_review"
+conflict,drive|verb,conflicting_source_values,warning,"field=cefr_level values=['A2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,exotic|adjective,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,fit|adjective,conflicting_source_values,warning,"field=cefr_level values=['A2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,imperative|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,indulge|verb,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,lark|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,march|noun,conflicting_source_values,warning,"field=cefr_level values=['A1', 'B1'] resolution=all_claims_kept_for_review"
+conflict,merger|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,nature|noun,conflicting_source_values,warning,"field=cefr_level values=['A2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,paralysis|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,plane|noun,conflicting_source_values,warning,"field=cefr_level values=['A1', 'C2'] resolution=all_claims_kept_for_review"
+conflict,vocalist|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C2'] resolution=all_claims_kept_for_review"
+conflict,wax|verb,conflicting_source_values,warning,"field=cefr_level values=['B1', 'C2'] resolution=all_claims_kept_for_review"
+conflict,wing|noun,conflicting_source_values,warning,"field=cefr_level values=['B1', 'C1'] resolution=all_claims_kept_for_review"
+conflict,withdrawal|noun,conflicting_source_values,warning,"field=cefr_level values=['B2', 'C1'] resolution=all_claims_kept_for_review"
+conflict,commission|verb,conflicting_source_values,warning,"field=cefr_level values=['C1', 'C2'] resolution=all_claims_kept_for_review"

@@ -1,0 +1,12 @@
+cefr|26099
+conflicts|33
+entries|16760
+examples|78121
+frequency|3437
+provenance|73505
+quality|51
+rels|131098
+senses|60657
+sense_synsets|10084
+synsets|107519
+translations|20612
