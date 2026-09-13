@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ActivityGameplay } from "@/components/activities/gameplay/activity-gameplay";
+import { LearnerShell } from "@/components/learner-shell";
 
 export default function StudentActivityPage() {
   const params = useParams<{ token: string; activityId: string }>();
@@ -36,8 +37,8 @@ export default function StudentActivityPage() {
   }
 
   return (
-    <div className="min-h-svh bg-muted/30 px-4 py-8">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <LearnerShell eyebrow="Activity" accessToken={token}>
+      <div className="space-y-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href={`/student/${token}`}>
             <ArrowLeft className="mr-2 size-4" />
@@ -65,13 +66,13 @@ export default function StudentActivityPage() {
           </Card>
         )}
       </div>
-    </div>
+    </LearnerShell>
   );
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-svh items-center justify-center p-6 bg-muted/30">
+    <div className="flex min-h-svh items-center justify-center p-6">
       <Card className="w-full max-w-md">
         <CardContent className="flex flex-col items-center py-12">
           {children}

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import { api, type Student } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -31,8 +34,6 @@ import {
   Plus,
   Search,
   Users,
-  ChevronLeft,
-  ChevronRight,
   Pencil,
   Eye,
   UserX,
@@ -46,8 +47,8 @@ export default function StudentsPage() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("students");
   const [isActiveFilter, setIsActiveFilter] = useState<string>("true");
-  const limit = 10;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
@@ -55,7 +56,7 @@ export default function StudentsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["students", { page, search, isActive: isActiveFilter }],
+    queryKey: ["students", { page, limit, search, isActive: isActiveFilter }],
     queryFn: () =>
       api.listStudents({
         page,
@@ -122,8 +123,6 @@ export default function StudentsPage() {
     setFormError(null);
     setEditStudent(s);
   }
-
-  const totalPages = data?.meta.totalPages ?? 1;
 
   return (
     <div className="space-y-6">
@@ -192,14 +191,18 @@ export default function StudentsPage() {
       ) : (
         <Card>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+            <p className="mb-2 px-4 pt-3 text-xs text-muted-foreground md:hidden">
+              Swipe sideways to see every column.
+            </p>
+            <table className="w-full min-w-[44rem] table-fixed text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Display Name</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 font-medium text-right">Actions</th>
+                  <th className="w-[20%] px-4 py-3 font-medium">Name</th>
+                  <th className="w-[28%] px-4 py-3 font-medium">Display Name</th>
+                  <th className="w-[14%] px-4 py-3 font-medium">Status</th>
+                  <th className="w-[14%] px-4 py-3 font-medium">Created</th>
+                  <th className="w-[24%] px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,8 +211,8 @@ export default function StudentsPage() {
                     key={s.id}
                     className="border-b last:border-b-0 hover:bg-muted/50 transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium">{s.firstName}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="px-4 py-3 align-top font-medium wrap-break-word">{s.firstName}</td>
+                    <td className="px-4 py-3 align-top text-muted-foreground wrap-break-word">
                       {s.displayName}
                     </td>
                     <td className="px-4 py-3">
@@ -265,46 +268,37 @@ export default function StudentsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <ListPagination
+        page={data?.meta.page ?? page}
+        limit={limit}
+        total={data?.meta.total ?? 0}
+        totalPages={data?.meta.totalPages ?? 0}
+        hasNext={data?.meta.hasNext}
+        hasPrev={data?.meta.hasPrev}
+        onPageChange={setPage}
+        onLimitChange={(next) => {
+          setLimit(next);
+          setPage(1);
+        }}
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>Add Student</DialogTitle>
           </DialogHeader>
+          <DialogBody>
           <StudentForm
             form={form}
             setForm={setForm}
             error={formError}
           />
+          </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
@@ -328,15 +322,17 @@ export default function StudentsPage() {
           if (!open) setEditStudent(null);
         }}
       >
-        <DialogContent>
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>Edit Student</DialogTitle>
           </DialogHeader>
+          <DialogBody>
           <StudentForm
             form={form}
             setForm={setForm}
             error={formError}
           />
+          </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditStudent(null)}>
               Cancel

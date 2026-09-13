@@ -90,15 +90,40 @@ class CsvBuilder:
             ]
 
     def _senses(self):
+        fallback_ndef = 0
+        skipped = 0
         for r in iter_jsonl(self._src("canonical_senses.jsonl")):
+            lemma = r.get("lemma") or ""
+            nlemma = r.get("normalized_lemma") or lemma
+            pos = r.get("part_of_speech") or ""
+            position = r.get("position")
+            definition = r.get("definition") or ""
+            ndef = r.get("normalized_definition") or ""
+            if not definition and not ndef:
+                LOG.warning("skipping sense with no definition: %s|%s|%s", nlemma, pos, position)
+                skipped += 1
+                continue
+            if not ndef:
+                ndef = definition
+                fallback_ndef += 1
+            if not definition:
+                definition = r.get("raw_definition") or ndef
+            wqid = r.get("wikidata_qid") or ""
+            if wqid and len(wqid) > 32:
+                LOG.warning("nulling wikidata_qid > 32 chars: %s...", wqid[:40])
+                wqid = ""
             yield [
-                r.get("normalized_lemma"), r.get("part_of_speech"), r.get("position"),
-                r.get("lemma"), r.get("definition"), r.get("normalized_definition"),
+                nlemma, pos, position,
+                lemma, definition, ndef,
                 r.get("raw_definition") or "",
                 "|".join(r.get("tags") or []),
-                r.get("sense_id_hint") or "", r.get("wikidata_qid") or "",
+                r.get("sense_id_hint") or "", wqid or "",
                 r.get("source_record_id") or "",
             ]
+        if fallback_ndef:
+            LOG.warning("%s senses: empty normalized_definition fell back to definition", fallback_ndef)
+        if skipped:
+            LOG.warning("%s senses skipped (no definition)", skipped)
 
     def _translations(self):
         for r in iter_jsonl(self._src("canonical_translations.jsonl")):
@@ -111,13 +136,36 @@ class CsvBuilder:
             ]
 
     def _examples(self):
+        skipped = 0
         for r in iter_jsonl(self._src("canonical_examples.jsonl")):
+            text = (r.get("text") or "").strip()
+            entry_key = r.get("entry_key", "")
+            if not text:
+                LOG.warning(
+                    "skipping example with empty text: %s|%s|%s",
+                    _nlemma_from_entry_key(entry_key),
+                    _pos_from_entry_key(entry_key),
+                    r.get("sense_position"),
+                )
+                skipped += 1
+                continue
+            if len(text.encode("utf-8")) > 2000:
+                LOG.warning(
+                    "skipping example text > 2000 bytes (btree index limit): %s|%s|%s",
+                    _nlemma_from_entry_key(entry_key),
+                    _pos_from_entry_key(entry_key),
+                    r.get("sense_position"),
+                )
+                skipped += 1
+                continue
             yield [
-                _nlemma_from_entry_key(r.get("entry_key", "")),
-                _pos_from_entry_key(r.get("entry_key", "")),
-                r.get("sense_position"), r.get("text"), r.get("example_type") or "example",
+                _nlemma_from_entry_key(entry_key),
+                _pos_from_entry_key(entry_key),
+                r.get("sense_position"), text, r.get("example_type") or "example",
                 r.get("ref") or "",
             ]
+        if skipped:
+            LOG.warning("%s examples skipped (empty/oversized text)", skipped)
 
     def _cefr(self):
         for r in iter_jsonl(self._src("cefr_assignments.jsonl")):

@@ -51,17 +51,32 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = "full",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  size?: "sm" | "md" | "lg" | "xl" | "full"
 }) {
+  const width =
+    size === "sm"
+      ? "sm:max-w-sm"
+      : size === "md"
+        ? "sm:max-w-xl"
+        : size === "lg"
+          ? "sm:max-w-3xl"
+          : size === "xl"
+            ? "sm:max-w-6xl"
+            : "sm:w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-1.5rem)]"
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed z-50 flex w-full flex-col overflow-hidden bg-popover text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+          "inset-x-0 bottom-0 top-auto max-h-[96dvh] rounded-t-2xl data-open:slide-in-from-bottom-4 data-closed:slide-out-to-bottom-4",
+          "sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[min(92dvh,72rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:data-open:zoom-in-95 sm:data-closed:zoom-out-95",
+          width,
           className
         )}
         {...props}
@@ -71,7 +86,7 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2"
+              className="absolute top-3 right-3 z-10"
               size="icon-sm"
             >
               <XIcon
@@ -89,7 +104,17 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("flex shrink-0 flex-col gap-1.5 border-b px-4 py-4 pr-12 sm:px-6", className)}
+      {...props}
+    />
+  )
+}
+
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6", className)}
       {...props}
     />
   )
@@ -107,7 +132,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "flex shrink-0 flex-col-reverse gap-2 border-t bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-6",
         className
       )}
       {...props}
@@ -156,6 +181,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

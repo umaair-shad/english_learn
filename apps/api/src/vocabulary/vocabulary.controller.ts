@@ -20,7 +20,13 @@ export class VocabularyController {
   @Get()
   @ApiOperation({ summary: 'Search and paginate vocabulary senses' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiQuery({
+    name: 'lexicalOnly',
+    required: false,
+    type: Boolean,
+    description: 'Hide numeric, symbol, and leetspeak lemmas',
+  })
   @ApiQuery({
     name: 'search',
     required: false,
@@ -59,6 +65,12 @@ export class VocabularyController {
   @ApiQuery({ name: 'q', required: true, example: 'bank' })
   async search(@Query() query: SearchVocabularyDto): Promise<PaginatedList> {
     return this.service.search(query);
+  }
+
+  @Get('ids')
+  @ApiOperation({ summary: 'Sense IDs matching the current vocabulary filters' })
+  listIds(@Query() query: ListVocabularyDto) {
+    return this.service.listIds(query);
   }
 
   @Get(':id')

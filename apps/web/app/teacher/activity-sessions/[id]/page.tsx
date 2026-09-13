@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import { api } from "@/lib/api";
 import { StatusBadge, EventTypeBadge } from "@/components/activities/status-badges";
 import { ActivityTypeBadge } from "@/components/activities/activity-type-badge";
@@ -17,13 +19,12 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const PAGE_SIZE = 200;
-
 export default function SessionDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const sessionId = Number(params.id);
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("session-events");
 
   const { data: session, isLoading: loadingSession } = useQuery({
     queryKey: ["session-meta", sessionId],
@@ -32,9 +33,9 @@ export default function SessionDetailPage() {
   });
 
   const { data: events, isLoading: loadingEvents } = useQuery({
-    queryKey: ["session-events", sessionId, page],
+    queryKey: ["session-events", sessionId, page, limit],
     queryFn: () =>
-      api.sessionEvents(sessionId, { page, limit: PAGE_SIZE }),
+      api.sessionEvents(sessionId, { page, limit }),
     enabled: !isNaN(sessionId),
   });
 
@@ -70,7 +71,6 @@ export default function SessionDetailPage() {
 
   const meta = events?.meta;
   const rows = events?.data ?? [];
-  const totalPages = Math.max(meta?.totalPages ?? 1, 1);
 
   return (
     <div className="space-y-6">
@@ -201,31 +201,21 @@ export default function SessionDetailPage() {
             </ol>
           )}
 
-          {totalPages > 1 ? (
-            <div className="flex items-center justify-between pt-4">
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          ) : null}
+          <div className="pt-4">
+            <ListPagination
+              page={meta?.page ?? page}
+              limit={limit}
+              total={meta?.total ?? 0}
+              totalPages={meta?.totalPages ?? 0}
+              hasNext={meta?.hasNext}
+              hasPrev={meta?.hasPrev}
+              onPageChange={setPage}
+              onLimitChange={(next) => {
+                setLimit(next);
+                setPage(1);
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

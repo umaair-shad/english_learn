@@ -63,6 +63,7 @@ export declare class AssignmentsService {
         createdAt: string;
         itemCount: number;
         masteredCount: number;
+        learningCount: number;
         progress: number;
     }>>;
     private requireExistingSenseIds;

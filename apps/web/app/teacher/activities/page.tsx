@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gamepad2, Loader2, Plus, X } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import { api, type ActivityStatus, type ActivityType } from "@/lib/api";
 import { StatusBadge } from "@/components/activities/status-badges";
 import { ActivityTypeBadge } from "@/components/activities/activity-type-badge";
@@ -17,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -64,10 +67,11 @@ export default function ActivitiesPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("activities");
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["activities", { studentFilter, status, typeFilter, search, page }],
+    queryKey: ["activities", { studentFilter, status, typeFilter, search, page, limit }],
     queryFn: () =>
       api.listActivities({
         studentId: studentFilter === "all" ? undefined : Number(studentFilter),
@@ -75,13 +79,12 @@ export default function ActivitiesPage() {
         activityType: typeFilter === "all" ? undefined : (typeFilter as ActivityType),
         search: search || undefined,
         page,
-        limit: 10,
+        limit,
       }),
     placeholderData: (prev) => prev,
   });
 
   const rows = data?.data ?? [];
-  const totalPages = data?.meta.totalPages ?? 0;
 
   function resetPage() {
     setPage(1);
@@ -196,16 +199,12 @@ export default function ActivitiesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Activity</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Student
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden xl:table-cell">
-                    Latest session
-                  </TableHead>
-                  <TableHead className="text-right">Progress</TableHead>
+                  <TableHead className="w-[28%]">Activity</TableHead>
+                  <TableHead className="w-[16%]">Student</TableHead>
+                  <TableHead className="w-[12%]">Type</TableHead>
+                  <TableHead className="w-[12%]">Status</TableHead>
+                  <TableHead className="w-[16%]">Latest session</TableHead>
+                  <TableHead className="w-[16%] text-right">Progress</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -224,16 +223,16 @@ export default function ActivitiesPage() {
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       {row.student.displayName}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="whitespace-nowrap">
                       <ActivityTypeBadge type={row.activityType} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <StatusBadge status={row.status} />
                     </TableCell>
-                    <TableCell className="hidden xl:table-cell">
+                    <TableCell>
                       {row.latestSession ? (
                         <span className="text-xs text-muted-foreground">
                           #{row.latestSession.id} · {row.latestSession.status}
@@ -255,29 +254,20 @@ export default function ActivitiesPage() {
             </Table>
           )}
 
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">
-              Page {data?.meta.page ?? page} of {Math.max(totalPages, 1)}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1 || isFetching}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages || isFetching}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <ListPagination
+            page={data?.meta.page ?? page}
+            limit={limit}
+            total={data?.meta.total ?? 0}
+            totalPages={data?.meta.totalPages ?? 0}
+            hasNext={data?.meta.hasNext}
+            hasPrev={data?.meta.hasPrev}
+            disabled={isFetching}
+            onPageChange={setPage}
+            onLimitChange={(next) => {
+              setLimit(next);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 
@@ -299,7 +289,7 @@ function StudentFilterSelect({
 }) {
   const { data } = useQuery({
     queryKey: ["students-for-activity-filter"],
-    queryFn: () => api.listStudents({ limit: 200 }),
+    queryFn: () => api.listStudents({ limit: 100, isActive: "true", sort: "displayName", order: "asc" }),
     placeholderData: (prev) => prev,
   });
 
@@ -346,10 +336,21 @@ function CreateActivityDialog({
   const [senseIds, setSenseIds] = useState<number[]>([]);
   const [senseQuery, setSenseQuery] = useState("");
 
-  const { data: students } = useQuery({
+  const {
+    data: students,
+    isLoading: studentsLoading,
+    isError: studentsError,
+    refetch: refetchStudents,
+  } = useQuery({
     queryKey: ["students-for-activity"],
-    queryFn: () => api.listStudents({ limit: 200 }),
-    placeholderData: (prev) => prev,
+    queryFn: () =>
+      api.listStudents({
+        limit: 100,
+        isActive: "true",
+        sort: "displayName",
+        order: "asc",
+      }),
+    enabled: open,
   });
 
   const { data: vocabSets } = useQuery({
@@ -449,7 +450,7 @@ function CreateActivityDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="h-[96dvh] sm:h-[min(92dvh,72rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gamepad2 className="size-5" />
@@ -461,27 +462,54 @@ function CreateActivityDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <DialogBody className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Student</Label>
-              <Select value={studentId} onValueChange={setStudentId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a student" />
+              <Select
+                value={studentId || undefined}
+                onValueChange={setStudentId}
+                disabled={studentsLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={
+                      studentsLoading
+                        ? "Loading students…"
+                        : studentsError
+                          ? "Could not load students"
+                          : "Choose a student"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {students?.data.map((s) => (
+                  {(students?.data ?? []).map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {s.displayName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {studentsError ? (
+                <p className="text-xs text-destructive">
+                  Student list failed.{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => void refetchStudents()}
+                  >
+                    Retry
+                  </button>
+                </p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label>Activity type</Label>
-              <Select value={activityType} onValueChange={(v) => setActivityType(v as ActivityType)}>
-                <SelectTrigger>
+              <Select
+                value={activityType || undefined}
+                onValueChange={(v) => setActivityType(v as ActivityType)}
+              >
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Choose a type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -519,7 +547,7 @@ function CreateActivityDialog({
 
           <div className="space-y-2">
             <Label>Vocabulary source</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant={mode === "assignment" ? "default" : "outline"}
@@ -600,7 +628,7 @@ function CreateActivityDialog({
               <div className="space-y-2">
                 <Label>Assignment</Label>
                 <Select
-                  value={assignmentId}
+                  value={assignmentId || undefined}
                   onValueChange={setAssignmentId}
                   disabled={studentId === ""}
                 >
@@ -674,7 +702,7 @@ function CreateActivityDialog({
                         <span className="ml-2 text-xs text-muted-foreground">
                           #{sense.id}
                         </span>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground wrap-break-word">
                           {sense.definition}
                         </p>
                       </span>
@@ -688,7 +716,10 @@ function CreateActivityDialog({
               {mode === "set" ? (
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Vocabulary set</Label>
-                  <Select value={vocabularySetId} onValueChange={setVocabularySetId}>
+                  <Select
+                    value={vocabularySetId || undefined}
+                    onValueChange={setVocabularySetId}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a set" />
                     </SelectTrigger>
@@ -766,9 +797,9 @@ function CreateActivityDialog({
               Failed to create the activity. Check the inputs and try again.
             </p>
           ) : null}
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="items-center justify-between gap-3 sm:justify-between">
+        <DialogFooter className="sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {mode === "manual"
               ? `${senseIds.length} senses selected`

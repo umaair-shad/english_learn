@@ -8,7 +8,7 @@ export declare class RealtimeController {
     private readonly realtime;
     private readonly jwtService;
     constructor(realtime: RealtimeService, jwtService: JwtService);
-    live(query: LiveQueryDto, req: AuthenticatedRequest): never[] | Promise<import("./realtime.types").LiveStudentDto[]>;
+    live(query: LiveQueryDto, req: AuthenticatedRequest): Promise<import("./realtime.types").LiveStudentDto[]> | never[];
     credentials(req: AuthenticatedRequest): Promise<{
         readonly accessToken: string;
     }>;

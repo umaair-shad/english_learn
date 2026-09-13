@@ -69,7 +69,7 @@ class AssignmentQueryDto {
     due;
     search;
     page = 1;
-    limit = 20;
+    limit = 10;
 }
 exports.AssignmentQueryDto = AssignmentQueryDto;
 __decorate([

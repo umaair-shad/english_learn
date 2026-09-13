@@ -64,15 +64,9 @@ export class RealtimeGateway
     const data = client.data as { studentId?: number };
     const studentId = data.studentId;
     if (typeof studentId !== 'number') return;
-    const cleared = this.realtime.clearPresence(studentId, client.id);
-    if (cleared) {
-      this.server.to(this.studentRoom(studentId)).emit('live:presence', {
-        studentId,
-        online: false,
-        sessionId: null,
-        connectedAt: null,
-        lastSeenAt: cleared.lastSeenAt,
-      } satisfies PresencePayload);
+    const next = this.realtime.clearPresence(studentId, client.id);
+    if (next) {
+      this.server.to(this.studentRoom(studentId)).emit('live:presence', next);
     }
   }
 

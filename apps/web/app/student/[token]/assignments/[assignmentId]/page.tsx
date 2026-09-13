@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AssignmentStatusBadge } from "@/components/assignments/assignment-status-badge";
 import { LearningStatusBadge } from "@/components/students/status-badge";
+import { LearnerShell } from "@/components/learner-shell";
 
 export default function StudentAssignmentDetailPage() {
   const params = useParams<{ token: string; assignmentId: string }>();
@@ -65,8 +66,8 @@ export default function StudentAssignmentDetailPage() {
   }
 
   return (
-    <div className="min-h-svh bg-muted/30 px-4 py-8">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <LearnerShell eyebrow="Assignment" accessToken={token}>
+      <div className="space-y-6">
         <Button asChild variant="ghost" size="sm" className="w-fit -ml-2">
           <Link href={`/student/${token}`}>
             <ArrowLeft className="mr-2 size-4" />
@@ -74,112 +75,128 @@ export default function StudentAssignmentDetailPage() {
           </Link>
         </Button>
 
-        <Card>
-          <CardHeader className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-xl">{data.title}</CardTitle>
-              <AssignmentStatusBadge status={data.status} />
-            </div>
-            {data.description ? (
-              <p className="text-sm text-muted-foreground">
-                {data.description}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {data.dueAt ? (
-                <span className="flex items-center gap-1">
-                  <CalendarClock className="size-4" />
-                  Due {new Date(data.dueAt).toLocaleDateString()}
-                </span>
-              ) : null}
-              <span>
-                {data.progress.mastered} of {data.progress.total} words mastered
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{ width: `${Math.min(100, data.progress.percent)}%` }}
-                />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+          <Card className="h-fit">
+            <CardHeader className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-xl">{data.title}</CardTitle>
+                <AssignmentStatusBadge status={data.status} />
               </div>
-              <span className="text-sm tabular-nums font-medium">
-                {data.progress.percent}%
-              </span>
-            </div>
-            <div className="grid grid-cols-5 gap-2 text-center">
-              {(
-                [
-                  ["assigned", "assigned"],
-                  ["encountered", "encountered"],
-                  ["learning", "in learning"],
-                  ["reviewing", "reviewing"],
-                  ["mastered", "mastered"],
-                ] as const
-              ).map(([key, label]) => (
-                <div key={key} className="rounded-md border px-1 py-2">
-                  <div className="text-sm font-semibold tabular-nums">
-                    {data.progress.countByStatus[key]}
+              {data.description ? (
+                <p className="text-sm text-muted-foreground">
+                  {data.description}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                {data.dueAt ? (
+                  <span className="flex items-center gap-1">
+                    <CalendarClock className="size-4" />
+                    Due {new Date(data.dueAt).toLocaleDateString()}
+                  </span>
+                ) : null}
+                <span>
+                  {data.progress.countByStatus.learning +
+                    data.progress.countByStatus.reviewing +
+                    data.progress.countByStatus.encountered}{" "}
+                  in learning · {data.progress.mastered} of {data.progress.total}{" "}
+                  mastered
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all"
+                    style={{ width: `${Math.min(100, data.progress.percent)}%` }}
+                  />
+                </div>
+                <span className="text-sm tabular-nums font-medium">
+                  {data.progress.percent}%
+                </span>
+              </div>
+              {data.progress.mastered === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Finishing an activity does not master words yet. They stay in
+                  learning until several successful reviews.
+                </p>
+              ) : null}
+              <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3 xl:grid-cols-1">
+                {(
+                  [
+                    ["assigned", "assigned"],
+                    ["encountered", "encountered"],
+                    ["learning", "in learning"],
+                    ["reviewing", "reviewing"],
+                    ["mastered", "mastered"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between rounded-xl border px-3 py-2"
+                  >
+                    <div className="text-xs text-muted-foreground">{label}</div>
+                    <div className="text-sm font-semibold tabular-nums">
+                      {data.progress.countByStatus[key]}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {label}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="min-w-0">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BellRing className="size-5 text-sky-600" />
+                Words in this assignment
+                <span className="text-sm font-normal text-muted-foreground">
+                  {data.items.length}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {data.items.map((item) => (
+                <div
+                  key={item.senseId}
+                  className="flex items-center justify-between gap-3 rounded-xl border bg-background px-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                      {item.lemma}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {item.partOfSpeech}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground wrap-break-word">
+                      {item.definition}
+                    </p>
+                    {item.translations.length > 0 ? (
+                      <p className="mt-1 text-sm leading-relaxed text-primary wrap-break-word">
+                        {item.translations.map((t) => t.text).join(", ")}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {item.learning ? (
+                      <LearningStatusBadge status={item.learning} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </div>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BellRing className="size-5 text-sky-600" />
-              Words in this assignment
-              <span className="text-sm font-normal text-muted-foreground">
-                {data.items.length}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data.items.map((item) => (
-              <div
-                key={item.senseId}
-                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                    {item.lemma}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {item.partOfSpeech}
-                    </span>
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {item.translations.length > 0
-                      ? item.translations.map((t) => t.text).join(", ")
-                      : item.definition}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {item.learning ? (
-                    <LearningStatusBadge status={item.learning} />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </LearnerShell>
   );
 }
 
 function CenteredShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-svh items-center justify-center p-6 bg-muted/30">
+    <div className="flex min-h-svh items-center justify-center p-6">
       <Card className="w-full max-w-md">
         <CardContent className="flex flex-col items-center py-12">
           {children}

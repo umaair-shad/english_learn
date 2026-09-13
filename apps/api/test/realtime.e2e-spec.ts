@@ -307,7 +307,7 @@ describe('Realtime live mirror (e2e, real PostgreSQL)', () => {
     closeSockets(client);
   });
 
-  it('lists owned students only in the HTTP live snapshot', async () => {
+  it('lists every student in the HTTP live snapshot (single-teacher roster)', async () => {
     const ownedByA = await createStudent(`${PREFIX}OwnedByA`);
     const ownedByB = await createStudent(`${PREFIX}OwnedByB`);
     await createActivityForTeacher(teacherA.accessToken, ownedByA, [SENSE_A]);
@@ -320,7 +320,7 @@ describe('Realtime live mirror (e2e, real PostgreSQL)', () => {
     const body = res.body as LiveStudentDto[];
     const ids = body.map((s) => s.studentId);
     expect(ids).toContain(ownedByA);
-    expect(ids).not.toContain(ownedByB);
+    expect(ids).toContain(ownedByB);
   });
 
   it('rejects a student socket with an invalid token', async () => {
@@ -338,7 +338,7 @@ describe('Realtime live mirror (e2e, real PostgreSQL)', () => {
     closeSockets(client);
   });
 
-  it('rejects teacher watch on a student they do not own', async () => {
+  it('allows teacher watch on any student (single-teacher roster)', async () => {
     const forA = await createStudent(`${PREFIX}DeniedA`);
     const forB = await createStudent(`${PREFIX}DeniedB`);
     await createActivityForTeacher(teacherA.accessToken, forA, [SENSE_A]);
@@ -351,8 +351,7 @@ describe('Realtime live mirror (e2e, real PostgreSQL)', () => {
     );
 
     const result = await watch(client, forB);
-    expect(result.allowed).toBe(false);
-    expect(result.reason).toBe('not-owned');
+    expect(result.allowed).toBe(true);
 
     closeSockets(client);
   });

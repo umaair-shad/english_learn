@@ -22,13 +22,19 @@ export class RealtimeService {
   setPresence(studentId: number, sessionId: number | null, socketId: string) {
     const now = new Date().toISOString();
     const existing = this.presence.get(studentId);
+    const socketIds = existing?.socketIds ?? new Set<string>();
+    const sessions = existing?.sessions ?? new Map<string, number | null>();
+    socketIds.add(socketId);
+    sessions.set(socketId, sessionId);
     const record: PresenceRecord = {
       studentId,
       online: true,
-      sessionId,
+      sessionId: this.activeSession(sessions),
       connectedAt: existing?.connectedAt ?? now,
       lastSeenAt: now,
       socketId,
+      socketIds,
+      sessions,
     };
     this.presence.set(studentId, record);
     return this.toPayload(record);
@@ -36,16 +42,30 @@ export class RealtimeService {
 
   touchPresence(studentId: number, socketId: string): PresenceRecord | null {
     const record = this.presence.get(studentId);
-    if (!record || record.socketId !== socketId) return null;
+    if (!record || !record.socketIds.has(socketId)) return null;
     record.lastSeenAt = new Date().toISOString();
     return record;
   }
 
-  clearPresence(studentId: number, socketId: string): PresenceRecord | null {
+  clearPresence(studentId: number, socketId: string): PresencePayload | null {
     const record = this.presence.get(studentId);
-    if (!record || record.socketId !== socketId) return null;
+    if (!record || !record.socketIds.has(socketId)) return null;
+    record.socketIds.delete(socketId);
+    record.sessions.delete(socketId);
+    if (record.socketIds.size > 0) {
+      record.socketId = [...record.socketIds][0];
+      record.sessionId = this.activeSession(record.sessions);
+      record.lastSeenAt = new Date().toISOString();
+      return this.toPayload(record);
+    }
     this.presence.delete(studentId);
-    return record;
+    return {
+      studentId,
+      online: false,
+      sessionId: null,
+      connectedAt: null,
+      lastSeenAt: new Date().toISOString(),
+    };
   }
 
   getPresence(studentId: number): PresencePayload | null {
@@ -62,22 +82,12 @@ export class RealtimeService {
     teacherId: number,
     studentId: number,
   ): Promise<boolean> {
-    const viaActivity = await this.prisma.activities.findFirst({
-      where: {
-        teacher_id: BigInt(teacherId),
-        student_id: BigInt(studentId),
-      },
+    void teacherId;
+    const student = await this.prisma.students.findFirst({
+      where: { id: BigInt(studentId) },
       select: { id: true },
     });
-    if (viaActivity) return true;
-    const viaAssignment = await this.prisma.assignments.findFirst({
-      where: {
-        created_by_teacher_id: BigInt(teacherId),
-        student_id: BigInt(studentId),
-      },
-      select: { id: true },
-    });
-    return viaAssignment !== null;
+    return student !== null;
   }
 
   // ------------------------------------------------------------ snapshot
@@ -98,41 +108,18 @@ export class RealtimeService {
       }
     >();
 
-    const [activities, assignments] = await Promise.all([
-      this.prisma.activities.findMany({
-        where: { teacher_id: BigInt(teacherId) },
-        select: {
-          student_id: true,
-          students: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              display_name: true,
-            },
-          },
-        },
-        distinct: ['student_id'],
-      }),
-      this.prisma.assignments.findMany({
-        where: { created_by_teacher_id: BigInt(teacherId) },
-        select: {
-          student_id: true,
-          students: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              display_name: true,
-            },
-          },
-        },
-        distinct: ['student_id'],
-      }),
-    ]);
-
-    for (const row of [...activities, ...assignments]) {
-      const s = row.students;
+    // Single-teacher product: every student is visible on the live board.
+    void teacherId;
+    const roster = await this.prisma.students.findMany({
+      where: { is_active: true },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        display_name: true,
+      },
+    });
+    for (const s of roster) {
       owned.set(Number(s.id), {
         id: Number(s.id),
         firstName: s.first_name,
@@ -165,6 +152,13 @@ export class RealtimeService {
   }
 
   // ------------------------------------------------------------ private
+
+  private activeSession(sessions: Map<string, number | null>): number | null {
+    for (const sessionId of sessions.values()) {
+      if (sessionId !== null) return sessionId;
+    }
+    return null;
+  }
 
   private toPayload(record: PresenceRecord): PresencePayload {
     return {

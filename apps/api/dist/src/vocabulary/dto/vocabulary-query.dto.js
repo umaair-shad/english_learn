@@ -21,13 +21,14 @@ exports.VOCABULARY_SORTS = [
 ];
 class ListVocabularyDto {
     page = 1;
-    limit = 20;
+    limit = 10;
     search;
     partOfSpeech;
     cefr;
     category;
     hasPolishTranslation;
     frequencyRank;
+    lexicalOnly;
     sort = 'lemma';
     order = 'asc';
 }
@@ -86,6 +87,12 @@ __decorate([
 ], ListVocabularyDto.prototype, "frequencyRank", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => value === 'true' || value === '1' || value === true),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ListVocabularyDto.prototype, "lexicalOnly", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsIn)(exports.VOCABULARY_SORTS),
     __metadata("design:type", String)
 ], ListVocabularyDto.prototype, "sort", void 0);
@@ -97,7 +104,7 @@ __decorate([
 class SearchVocabularyDto {
     q;
     page = 1;
-    limit = 20;
+    limit = 10;
 }
 exports.SearchVocabularyDto = SearchVocabularyDto;
 __decorate([

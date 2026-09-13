@@ -1,8 +1,8 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { ExternalLink, RotateCcw, Search, SearchX } from "lucide-react";
+import { ExternalLink, FolderPlus, RotateCcw, Search, SearchX } from "lucide-react";
 import {
   api,
   CEFR_OPTIONS,
@@ -32,9 +32,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import { SenseDetailDialog } from "./sense-detail-dialog";
-
-const PAGE_SIZE = 25;
 
 const CEFR_TONE: Record<string, string> = {
   A1: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
@@ -57,9 +57,12 @@ export function VocabularyExplorer({
   const [hasPolish, setHasPolish] = useState<string>("all");
   const [category, setCategory] = useState(initialCategory);
   const [frequencyRank, setFrequencyRank] = useState<string>("");
-  const [sort, setSort] = useState<SortField>("lemma");
+  const [sort, setSort] = useState<SortField>("frequency");
   const [order, setOrder] = useState<SortOrder>("asc");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("vocabulary");
+  const [lexicalOnly, setLexicalOnly] = useState(true);
+  const [collectionName, setCollectionName] = useState("");
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const debounceTimer = useRef<number | undefined>(undefined);
@@ -75,7 +78,7 @@ export function VocabularyExplorer({
 
   const query = {
     page,
-    limit: PAGE_SIZE,
+    limit,
     search: debouncedSearch || undefined,
     partOfSpeech: partOfSpeech === "all" ? undefined : partOfSpeech,
     cefr: cefr === "all" ? undefined : cefr,
@@ -83,6 +86,7 @@ export function VocabularyExplorer({
     hasPolishTranslation:
       hasPolish === "all" ? undefined : hasPolish === "yes",
     frequencyRank: frequencyRank ? Number(frequencyRank) : undefined,
+    lexicalOnly: lexicalOnly || undefined,
     sort,
     order,
   };
@@ -93,7 +97,27 @@ export function VocabularyExplorer({
     placeholderData: (prev) => prev,
   });
 
-  const totalPages = data?.meta.totalPages ?? 1;
+  const saveCollection = useMutation({
+    mutationFn: async () => {
+      const name = collectionName.trim();
+      if (!name) throw new Error("Name a collection first.");
+      const ids = await api.listVocabularyIds({
+        ...query,
+        page: 1,
+        limit: 200,
+      });
+      if (ids.senseIds.length === 0) throw new Error("No words match these filters.");
+      return api.createVocabularySet({
+        name,
+        description: `Saved from vocabulary filters (${ids.senseIds.length} of ${ids.total} matching).`,
+        senseIds: ids.senseIds,
+      });
+    },
+    onSuccess: () => {
+      setCollectionName("");
+      queryClient.invalidateQueries({ queryKey: ["vocabulary-sets"] });
+    },
+  });
 
   const resetFilters = () => {
     setSearch("");
@@ -103,8 +127,9 @@ export function VocabularyExplorer({
     setHasPolish("all");
     setCategory("");
     setFrequencyRank("");
-    setSort("lemma");
+    setSort("frequency");
     setOrder("asc");
+    setLexicalOnly(true);
     setPage(1);
   };
 
@@ -305,6 +330,44 @@ export function VocabularyExplorer({
             >
               Reset filters
             </Button>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={lexicalOnly}
+                onChange={(e) => {
+                  setLexicalOnly(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              Hide numbers & slang lemmas
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                className="h-8 w-44"
+                placeholder="Collection name"
+                value={collectionName}
+                onChange={(e) => setCollectionName(e.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={saveCollection.isPending || collectionName.trim().length < 2}
+                onClick={() => saveCollection.mutate()}
+              >
+                <FolderPlus className="size-3.5" />
+                Save collection
+              </Button>
+            </div>
+            {saveCollection.isSuccess ? (
+              <p className="text-xs text-emerald-700">Saved as a reusable collection.</p>
+            ) : null}
+            {saveCollection.isError ? (
+              <p className="text-xs text-destructive">
+                {saveCollection.error instanceof Error
+                  ? saveCollection.error.message
+                  : "Could not save collection."}
+              </p>
+            ) : null}
 
             <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
               {data ? (
@@ -362,16 +425,16 @@ export function VocabularyExplorer({
       ) : (
         <Card>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
+            <Table containerClassName="max-h-[min(36rem,calc(100svh-18rem))]">
+              <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card">
                 <TableRow>
-                  <TableHead>Lemma</TableHead>
-                  <TableHead>POS</TableHead>
-                  <TableHead>Definition</TableHead>
-                  <TableHead>Polish</TableHead>
-                  <TableHead>CEFR</TableHead>
-                  <TableHead className="text-right">Freq</TableHead>
-                  <TableHead className="w-px" />
+                  <TableHead className="w-[14%]">Lemma</TableHead>
+                  <TableHead className="w-[8%]">POS</TableHead>
+                  <TableHead className="w-[36%]">Definition</TableHead>
+                  <TableHead className="w-[20%]">Polish</TableHead>
+                  <TableHead className="w-[10%]">CEFR</TableHead>
+                  <TableHead className="w-[8%] text-right">Freq</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -390,11 +453,11 @@ export function VocabularyExplorer({
                     <TableCell>
                       <Badge variant="secondary">{row.partOfSpeech}</Badge>
                     </TableCell>
-                    <TableCell className="max-w-96 text-sm text-muted-foreground">
-                      <span className="line-clamp-2">{row.definition}</span>
+                    <TableCell className="text-sm leading-relaxed text-muted-foreground">
+                      {row.definition}
                     </TableCell>
                     <TableCell>
-                      <div className="flex max-w-56 flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1">
                         {row.translations.length === 0 ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
@@ -437,27 +500,20 @@ export function VocabularyExplorer({
         </Card>
       )}
 
-      <div className="flex items-center justify-between gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={page <= 1 || isFetching}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          Previous
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          Page {data?.meta.page ?? page} of {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={page >= totalPages || isFetching}
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-        >
-          Next
-        </Button>
-      </div>
+      <ListPagination
+        page={data?.meta.page ?? page}
+        limit={limit}
+        total={data?.meta.total ?? 0}
+        totalPages={data?.meta.totalPages ?? 0}
+        hasNext={data?.meta.hasNext}
+        hasPrev={data?.meta.hasPrev}
+        disabled={isFetching}
+        onPageChange={setPage}
+        onLimitChange={(next) => {
+          setLimit(next);
+          setPage(1);
+        }}
+      />
 
       <SenseDetailDialog
         entryId={selectedEntryId}

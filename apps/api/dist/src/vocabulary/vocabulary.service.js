@@ -13,6 +13,7 @@ exports.VocabularyService = void 0;
 exports.buildWhereSql = buildWhereSql;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const page_meta_1 = require("../common/utils/page-meta");
 const prisma_service_1 = require("../database/prisma.service");
 const vocabulary_query_dto_1 = require("./dto/vocabulary-query.dto");
 const SENSE_SELECT = client_1.Prisma.sql `
@@ -65,6 +66,14 @@ function buildWhereSql(dto) {
             ? client_1.Prisma.sql `EXISTS (SELECT 1 FROM translations t WHERE t.vocabulary_sense_id = s.id AND t.language = 'pl')`
             : client_1.Prisma.sql `NOT EXISTS (SELECT 1 FROM translations t WHERE t.vocabulary_sense_id = s.id AND t.language = 'pl')`);
     }
+    if (dto.lexicalOnly) {
+        clauses.push(client_1.Prisma.sql `
+      e.normalized_lemma ~ '[a-z]'
+      AND e.normalized_lemma !~ '^[0-9]'
+      AND e.part_of_speech NOT IN ('symbol', 'numeral')
+      AND char_length(regexp_replace(e.normalized_lemma, '[^a-z]', '', 'g')) >= 2
+    `);
+    }
     if (dto.frequencyRank !== undefined) {
         clauses.push(client_1.Prisma.sql `EXISTS (
       SELECT 1 FROM frequency_data fd
@@ -80,6 +89,12 @@ function buildWhereSql(dto) {
         SELECT 1 FROM translations t
         WHERE t.vocabulary_sense_id = s.id
           AND t.normalized_text ILIKE ${pattern}
+      )
+      OR EXISTS (
+        SELECT 1 FROM vocabulary_category_assignments vca
+        JOIN categories cat ON cat.id = vca.category_id
+        WHERE vca.vocabulary_sense_id = s.id
+          AND (cat.code ILIKE ${pattern} OR cat.name ILIKE ${pattern})
       )
     )`);
     }
@@ -132,10 +147,22 @@ let VocabularyService = class VocabularyService {
             frequencyRank: row.frequencyRank === null ? null : Number(row.frequencyRank),
         }));
         const total = Number(counted[0]?.total ?? 0);
-        const totalPages = total === 0 ? 0 : Math.ceil(total / dto.limit);
         return {
             data,
-            meta: { page: dto.page, limit: dto.limit, total, totalPages },
+            meta: (0, page_meta_1.pageMeta)(dto.page, dto.limit, total),
+        };
+    }
+    async listIds(dto) {
+        const cap = Math.min(dto.limit, 200);
+        const rows = await this.client.$queryRaw(client_1.Prisma.sql `${buildWhereSql(dto)}
+        ${orderBySql(dto.sort, dto.order)}
+        LIMIT ${cap}`);
+        const counted = await this.client.$queryRaw `
+      SELECT count(*) AS total FROM (${buildWhereSql(dto)}) AS base
+    `;
+        return {
+            senseIds: rows.map((r) => Number(r.senseId)),
+            total: Number(counted[0]?.total ?? 0),
         };
     }
     async search(dto) {
@@ -144,6 +171,7 @@ let VocabularyService = class VocabularyService {
         listDto.limit = dto.limit;
         listDto.search = dto.q;
         listDto.sort = 'lemma';
+        listDto.lexicalOnly = true;
         return this.list(listDto);
     }
     async listCategories() {

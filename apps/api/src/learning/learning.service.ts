@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FsrsService, FsrsStateName } from '../fsrs/fsrs.service';
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import {
   DueReviewsQueryDto,
@@ -299,12 +300,7 @@ export class LearningService {
     const total = Number(counted[0]?.total ?? 0);
     return {
       data: await this.mapRows(studentId, rows),
-      meta: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-      },
+      meta: pageMeta(query.page, query.limit, total),
     };
   }
 
@@ -655,12 +651,7 @@ export class LearningService {
     const total = Number(counted[0]?.total ?? 0);
     return {
       data: await this.mapRows(studentId, rows),
-      meta: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-      },
+      meta: pageMeta(query.page, query.limit, total),
     };
   }
 
@@ -894,7 +885,9 @@ export class LearningService {
     const clauses: Prisma.Sql[] = [Prisma.sql`svs.student_id = ${studentId}`];
 
     if (query.status) {
-      clauses.push(Prisma.sql`svs.status = ${query.status}`);
+      clauses.push(
+        Prisma.sql`svs.status = CAST(${query.status} AS learning_status)`,
+      );
     }
 
     if (query.partOfSpeech) {

@@ -49,7 +49,10 @@ export class AuthService {
     return {
       accessToken,
       expiresIn: rawExpiresIn,
-      teacher: this.teachers.toProfile(teacher),
+      teacher: this.teachers.toProfile({
+        ...teacher,
+        last_login_at: new Date(),
+      }),
     };
   }
 

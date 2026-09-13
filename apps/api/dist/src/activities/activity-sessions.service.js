@@ -12,11 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ActivitySessionsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const page_meta_1 = require("../common/utils/page-meta");
 const prisma_service_1 = require("../database/prisma.service");
 const activity_events_service_1 = require("./activity-events.service");
 const activity_items_helper_1 = require("./activity-items.helper");
 const activity_learning_service_1 = require("./activity-learning.service");
 const realtime_gateway_1 = require("../realtime/realtime.gateway");
+const session_stats_helper_1 = require("./session-stats.helper");
 const ANSWERABLE_TYPES = new Set(['ANSWER_CORRECT', 'ANSWER_INCORRECT']);
 const EVENT_SENSE_SELECT = client_1.Prisma.sql `
 SELECT
@@ -292,11 +294,12 @@ let ActivitySessionsService = class ActivitySessionsService {
                 responseTimeMs: dto.responseTimeMs ?? null,
                 metadata: dto.metadata ?? null,
             });
+            const answer = (0, session_stats_helper_1.statsFor)(await (0, session_stats_helper_1.loadSessionAnswerStats)(tx, [session.id]), session.id);
             await tx.activity_sessions.update({
                 where: { id: session.id },
                 data: {
-                    correct_count: dto.eventType === 'ANSWER_CORRECT' ? { increment: 1 } : undefined,
-                    incorrect_count: dto.eventType === 'ANSWER_INCORRECT' ? { increment: 1 } : undefined,
+                    correct_count: answer.correct,
+                    incorrect_count: answer.incorrect,
                     current_item_index: item ? item.position : undefined,
                     last_activity_at: new Date(),
                     updated_at: new Date(),
@@ -379,7 +382,7 @@ let ActivitySessionsService = class ActivitySessionsService {
                         partOfSpeech: String(r.partOfSpeech),
                     },
             })),
-            meta: { page: query.page, limit: query.limit, total },
+            meta: (0, page_meta_1.pageMeta)(query.page, query.limit, total),
         };
     }
     emitMirror(session, detail) {
@@ -422,9 +425,9 @@ let ActivitySessionsService = class ActivitySessionsService {
     }
     async mapSessionList(rows) {
         const ids = rows.map((r) => r.id);
-        const completed = await this.loadCompletedCounts(ids);
+        const stats = await (0, session_stats_helper_1.loadSessionAnswerStats)(this.prisma, ids);
         return rows.map((row) => {
-            const done = completed.get(row.id) ?? 0;
+            const answer = (0, session_stats_helper_1.statsFor)(stats, row.id);
             return {
                 id: Number(row.id),
                 status: row.status,
@@ -434,31 +437,15 @@ let ActivitySessionsService = class ActivitySessionsService {
                 pausedAt: row.paused_at?.toISOString() ?? null,
                 currentItemIndex: row.current_item_index,
                 totalItems: row.total_items,
-                correctCount: Number(row.correct_count),
-                incorrectCount: Number(row.incorrect_count),
-                completedCount: Number(done),
-                percentComplete: row.total_items === 0
-                    ? 0
-                    : Math.min(100, Math.round((Number(done) / row.total_items) * 100)),
+                correctCount: answer.correct,
+                incorrectCount: answer.incorrect,
+                completedCount: answer.completed,
+                percentComplete: (0, session_stats_helper_1.percentComplete)(answer.completed, row.total_items),
             };
         });
     }
-    async loadCompletedCounts(sessionIds) {
-        if (sessionIds.length === 0)
-            return new Map();
-        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `SELECT session_id AS "sessionId",
-                 count(DISTINCT vocabulary_sense_id) AS completed
-        FROM activity_events
-        WHERE session_id IN (${client_1.Prisma.join(sessionIds)})
-          AND event_type IN ('ANSWER_CORRECT', 'ANSWER_INCORRECT')
-        GROUP BY session_id`);
-        const map = new Map();
-        for (const row of rows)
-            map.set(row.sessionId, Number(row.completed));
-        return map;
-    }
     async toActiveSessionDto(session, activity) {
-        const completed = (await this.loadCompletedCounts([session.id])).get(session.id) ?? 0;
+        const answer = (0, session_stats_helper_1.statsFor)(await (0, session_stats_helper_1.loadSessionAnswerStats)(this.prisma, [session.id]), session.id);
         return {
             id: Number(session.id),
             activityId: Number(session.activity_id),
@@ -470,12 +457,11 @@ let ActivitySessionsService = class ActivitySessionsService {
             pausedAt: session.paused_at?.toISOString() ?? null,
             currentItemIndex: session.current_item_index,
             totalItems: session.total_items,
-            correctCount: Number(session.correct_count),
-            incorrectCount: Number(session.incorrect_count),
-            completedCount: completed,
-            percentComplete: session.total_items === 0
-                ? 0
-                : Math.min(100, Math.round((completed / session.total_items) * 100)),
+            correctCount: answer.correct,
+            incorrectCount: answer.incorrect,
+            completedCount: answer.completed,
+            percentComplete: (0, session_stats_helper_1.percentComplete)(answer.completed, session.total_items),
+            answeredSenseIds: answer.answeredSenseIds,
             metadata: session.metadata ?? null,
             createdAt: session.created_at.toISOString(),
             updatedAt: session.updated_at.toISOString(),

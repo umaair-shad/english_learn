@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import {
   ListVocabularyDto,
@@ -75,6 +76,7 @@ export function buildWhereSql(
     | 'category'
     | 'hasPolishTranslation'
     | 'frequencyRank'
+    | 'lexicalOnly'
   >,
 ): Prisma.Sql {
   const clauses: Prisma.Sql[] = [Prisma.sql`TRUE`];
@@ -108,6 +110,15 @@ export function buildWhereSql(
     );
   }
 
+  if (dto.lexicalOnly) {
+    clauses.push(Prisma.sql`
+      e.normalized_lemma ~ '[a-z]'
+      AND e.normalized_lemma !~ '^[0-9]'
+      AND e.part_of_speech NOT IN ('symbol', 'numeral')
+      AND char_length(regexp_replace(e.normalized_lemma, '[^a-z]', '', 'g')) >= 2
+    `);
+  }
+
   if (dto.frequencyRank !== undefined) {
     clauses.push(Prisma.sql`EXISTS (
       SELECT 1 FROM frequency_data fd
@@ -124,6 +135,12 @@ export function buildWhereSql(
         SELECT 1 FROM translations t
         WHERE t.vocabulary_sense_id = s.id
           AND t.normalized_text ILIKE ${pattern}
+      )
+      OR EXISTS (
+        SELECT 1 FROM vocabulary_category_assignments vca
+        JOIN categories cat ON cat.id = vca.category_id
+        WHERE vca.vocabulary_sense_id = s.id
+          AND (cat.code ILIKE ${pattern} OR cat.name ILIKE ${pattern})
       )
     )`);
   }
@@ -184,11 +201,26 @@ export class VocabularyService {
     }));
 
     const total = Number(counted[0]?.total ?? 0);
-    const totalPages = total === 0 ? 0 : Math.ceil(total / dto.limit);
 
     return {
       data,
-      meta: { page: dto.page, limit: dto.limit, total, totalPages },
+      meta: pageMeta(dto.page, dto.limit, total),
+    };
+  }
+
+  async listIds(dto: ListVocabularyDto): Promise<{ senseIds: number[]; total: number }> {
+    const cap = Math.min(dto.limit, 200);
+    const rows = await this.client.$queryRaw<Array<{ senseId: bigint }>>(
+      Prisma.sql`${buildWhereSql(dto)}
+        ${orderBySql(dto.sort, dto.order)}
+        LIMIT ${cap}`,
+    );
+    const counted = await this.client.$queryRaw<Array<{ total: bigint }>>`
+      SELECT count(*) AS total FROM (${buildWhereSql(dto)}) AS base
+    `;
+    return {
+      senseIds: rows.map((r) => Number(r.senseId)),
+      total: Number(counted[0]?.total ?? 0),
     };
   }
 
@@ -198,6 +230,7 @@ export class VocabularyService {
     listDto.limit = dto.limit;
     listDto.search = dto.q;
     listDto.sort = 'lemma';
+    listDto.lexicalOnly = true;
     return this.list(listDto);
   }
 

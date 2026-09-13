@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AssignmentsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const page_meta_1 = require("../common/utils/page-meta");
 const prisma_service_1 = require("../database/prisma.service");
 const ASSIGNMENT_ITEM_SELECT = client_1.Prisma.sql `
 SELECT
@@ -116,12 +117,7 @@ let AssignmentsService = class AssignmentsService {
                     progress: itemCount === 0 ? 0 : Math.round((masteredCount / itemCount) * 100),
                 };
             }),
-            meta: {
-                page: query.page,
-                limit: query.limit,
-                total,
-                totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-            },
+            meta: (0, page_meta_1.pageMeta)(query.page, query.limit, total),
         };
     }
     async create(teacherId, dto) {
@@ -361,6 +357,7 @@ let AssignmentsService = class AssignmentsService {
         return rows.map((row) => {
             const itemCount = row._count.assignment_items;
             const masteredCount = Number(progress.get(row.id)?.mastered ?? 0);
+            const learningCount = Number(progress.get(row.id)?.learning ?? 0);
             return {
                 id: Number(row.id),
                 title: row.title,
@@ -372,6 +369,7 @@ let AssignmentsService = class AssignmentsService {
                 createdAt: row.created_at.toISOString(),
                 itemCount,
                 masteredCount,
+                learningCount,
                 progress: itemCount === 0 ? 0 : Math.round((masteredCount / itemCount) * 100),
             };
         });
@@ -412,7 +410,10 @@ let AssignmentsService = class AssignmentsService {
         const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `SELECT
           ai.assignment_id AS "assignmentId",
           count(*) AS total,
-          count(*) FILTER (WHERE st.status = 'MASTERED') AS mastered
+          count(*) FILTER (WHERE st.status = 'MASTERED') AS mastered,
+          count(*) FILTER (
+            WHERE st.status IN ('ENCOUNTERED', 'LEARNING', 'REVIEWING')
+          ) AS learning
         FROM assignment_items ai
         JOIN assignments a ON a.id = ai.assignment_id
         LEFT JOIN student_vocabulary_states st
@@ -422,7 +423,11 @@ let AssignmentsService = class AssignmentsService {
         GROUP BY ai.assignment_id`);
         return new Map(rows.map((r) => [
             r.assignmentId,
-            { total: Number(r.total), mastered: Number(r.mastered) },
+            {
+                total: Number(r.total),
+                mastered: Number(r.mastered),
+                learning: Number(r.learning),
+            },
         ]));
     }
     async loadTranslations(senseIds) {

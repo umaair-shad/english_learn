@@ -30,6 +30,8 @@ export interface PresencePayload {
 }
 export interface PresenceRecord extends PresencePayload {
     socketId: string;
+    socketIds: Set<string>;
+    sessions: Map<string, number | null>;
 }
 export interface WatchResult {
     studentId: number;

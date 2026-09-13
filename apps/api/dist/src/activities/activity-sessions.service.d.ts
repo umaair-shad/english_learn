@@ -1,3 +1,4 @@
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import { ActivityEventsService } from './activity-events.service';
 import { ActivityLearningService } from './activity-learning.service';
@@ -19,6 +20,7 @@ export interface ActivitySessionDto {
     incorrectCount: number;
     completedCount: number;
     percentComplete: number;
+    answeredSenseIds: number[];
     metadata: Record<string, unknown> | null;
     createdAt: string;
     updatedAt: string;
@@ -77,15 +79,10 @@ export declare class ActivitySessionsService {
     getTeacherSession(sessionId: number): Promise<ActivitySessionDto>;
     events(sessionId: number, query: SessionEventListQueryDto): Promise<{
         data: SessionEventListItemDto[];
-        meta: {
-            page: number;
-            limit: number;
-            total: number;
-        };
+        meta: ReturnType<typeof pageMeta>;
     }>;
     private emitMirror;
     private requireOwned;
     private mapSessionList;
-    private loadCompletedCounts;
     private toActiveSessionDto;
 }

@@ -12,8 +12,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ActivitiesService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const page_meta_1 = require("../common/utils/page-meta");
 const prisma_service_1 = require("../database/prisma.service");
 const activity_items_helper_1 = require("./activity-items.helper");
+const session_stats_helper_1 = require("./session-stats.helper");
 let ActivitiesService = class ActivitiesService {
     prisma;
     constructor(prisma) {
@@ -54,11 +56,11 @@ let ActivitiesService = class ActivitiesService {
         ]);
         const ids = rows.map((r) => r.id);
         const sessions = await this.loadLatestSessions(ids);
-        const completed = await this.loadCompletedCounts([...sessions.keys()]);
+        const stats = await (0, session_stats_helper_1.loadSessionAnswerStats)(this.prisma, [...sessions.values()].map((s) => s.sessionId));
         return {
             data: rows.map((row) => {
                 const latest = sessions.get(row.id) ?? null;
-                const progress = this.toLatestSessionDto(latest, completed);
+                const progress = this.toLatestSessionDto(latest, stats);
                 return {
                     id: Number(row.id),
                     studentId: Number(row.student_id),
@@ -85,12 +87,7 @@ let ActivitiesService = class ActivitiesService {
                     latestSession: progress,
                 };
             }),
-            meta: {
-                page: query.page,
-                limit: query.limit,
-                total,
-                totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-            },
+            meta: (0, page_meta_1.pageMeta)(query.page, query.limit, total),
         };
     }
     async listForStudent(studentId) {
@@ -107,7 +104,7 @@ let ActivitiesService = class ActivitiesService {
         });
         const ids = rows.map((r) => r.id);
         const sessions = await this.loadLatestSessions(ids);
-        const completed = await this.loadCompletedCounts([...sessions.keys()]);
+        const stats = await (0, session_stats_helper_1.loadSessionAnswerStats)(this.prisma, [...sessions.values()].map((s) => s.sessionId));
         return rows.map((row) => {
             const latest = sessions.get(row.id) ?? null;
             return {
@@ -133,7 +130,7 @@ let ActivitiesService = class ActivitiesService {
                     }
                     : null,
                 itemCount: row._count.activity_items,
-                latestSession: this.toLatestSessionDto(latest, completed),
+                latestSession: this.toLatestSessionDto(latest, stats),
             };
         });
     }
@@ -469,35 +466,20 @@ let ActivitiesService = class ActivitiesService {
         WHERE rn = 1`);
         return new Map(rows.map((row) => [row.activityId, row]));
     }
-    async loadCompletedCounts(sessionIds) {
-        if (sessionIds.length === 0)
-            return new Map();
-        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `SELECT session_id AS "sessionId", count(DISTINCT vocabulary_sense_id) AS completed
-        FROM activity_events
-        WHERE session_id IN (${client_1.Prisma.join(sessionIds)})
-          AND event_type IN ('ANSWER_CORRECT', 'ANSWER_INCORRECT')
-        GROUP BY session_id`);
-        const map = new Map();
-        for (const row of rows)
-            map.set(row.sessionId, Number(row.completed));
-        return map;
-    }
-    toLatestSessionDto(session, completed) {
+    toLatestSessionDto(session, stats) {
         if (!session)
             return null;
-        const done = completed.get(session.sessionId) ?? 0;
+        const answer = (0, session_stats_helper_1.statsFor)(stats, session.sessionId);
         return {
             id: Number(session.sessionId),
             status: session.status,
             startedAt: session.startedAt.toISOString(),
             finishedAt: session.finishedAt?.toISOString() ?? null,
             totalItems: session.totalItems,
-            corrected: Number(session.correct),
-            incorrect: Number(session.incorrect),
-            completed: Number(done),
-            percentComplete: session.totalItems === 0
-                ? 0
-                : Math.min(100, Math.round((Number(done) / session.totalItems) * 100)),
+            corrected: answer.correct,
+            incorrect: answer.incorrect,
+            completed: answer.completed,
+            percentComplete: (0, session_stats_helper_1.percentComplete)(answer.completed, session.totalItems),
         };
     }
 };

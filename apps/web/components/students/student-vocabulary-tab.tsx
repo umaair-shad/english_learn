@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { BookPlus, CalendarClock, Eye } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import { api, type LearningStatus, type StudentVocabRow } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,15 +45,16 @@ export function StudentVocabularyTab({ studentId }: { studentId: number }) {
   const [cefr, setCefr] = useState<string>("all");
   const [due, setDue] = useState<"all" | "true" | "false">("all");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("student-vocabulary");
   const [selectedSense, setSelectedSense] = useState<number | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["student-vocabulary", studentId, { search, status, cefr, due, page }],
+    queryKey: ["student-vocabulary", studentId, { search, status, cefr, due, page, limit }],
     queryFn: () =>
       api.studentVocabulary(studentId, {
         page,
-        limit: 10,
+        limit,
         search: search || undefined,
         status: status === "all" ? undefined : (status as LearningStatus),
         cefr: cefr === "all" ? undefined : cefr,
@@ -61,7 +64,6 @@ export function StudentVocabularyTab({ studentId }: { studentId: number }) {
   });
 
   const rows = data?.data ?? [];
-  const totalPages = data?.meta.totalPages ?? 0;
 
   function resetPage() {
     setPage(1);
@@ -154,12 +156,13 @@ export function StudentVocabularyTab({ studentId }: { studentId: number }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Lemma</TableHead>
-                <TableHead className="hidden md:table-cell">POS</TableHead>
-                <TableHead className="hidden md:table-cell">CEFR</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden sm:table-cell">Next review</TableHead>
-                <TableHead className="text-right">Inspect</TableHead>
+                <TableHead className="w-[16%]">Lemma</TableHead>
+                <TableHead className="w-[8%]">POS</TableHead>
+                <TableHead className="w-[8%]">CEFR</TableHead>
+                <TableHead className="w-[36%]">Definition</TableHead>
+                <TableHead className="w-[14%]">Status</TableHead>
+                <TableHead className="w-[12%]">Next review</TableHead>
+                <TableHead className="w-[6%] text-right">Inspect</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -174,29 +177,20 @@ export function StudentVocabularyTab({ studentId }: { studentId: number }) {
           </Table>
         )}
 
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-muted-foreground">
-            Page {data?.meta.page ?? page} of {Math.max(totalPages, 1)}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1 || isFetching}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages || isFetching}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+        <ListPagination
+          page={data?.meta.page ?? page}
+          limit={limit}
+          total={data?.meta.total ?? 0}
+          totalPages={data?.meta.totalPages ?? 0}
+          hasNext={data?.meta.hasNext}
+          hasPrev={data?.meta.hasPrev}
+          disabled={isFetching}
+          onPageChange={setPage}
+          onLimitChange={(next) => {
+            setLimit(next);
+            setPage(1);
+          }}
+        />
       </CardContent>
 
       <SenseStateDialog
@@ -225,23 +219,23 @@ function StudentVocabRowItem({
     <TableRow>
       <TableCell>
         <div className="font-medium">{sense.lemma}</div>
-        <div className="max-w-64 truncate text-xs text-muted-foreground">
-          {sense.definition}
-        </div>
-      </TableCell>
-      <TableCell className="hidden md:table-cell">
-        <span className="text-xs">{sense.partOfSpeech}</span>
-      </TableCell>
-      <TableCell className="hidden md:table-cell">
-        {sense.cefrLevels.length > 0 ? sense.cefrLevels.join(", ") : "—"}
       </TableCell>
       <TableCell>
+        <span className="text-xs">{sense.partOfSpeech}</span>
+      </TableCell>
+      <TableCell>
+        {sense.cefrLevels.length > 0 ? sense.cefrLevels.join(", ") : "—"}
+      </TableCell>
+      <TableCell className="text-sm leading-relaxed text-muted-foreground">
+        {sense.definition}
+      </TableCell>
+      <TableCell className="whitespace-nowrap">
         <LearningStatusBadge status={state.status} />
         {state.isDue ? (
           <span className="ml-2 text-xs font-medium text-amber-600">due</span>
         ) : null}
       </TableCell>
-      <TableCell className="hidden sm:table-cell">
+      <TableCell>
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <CalendarClock className="size-3.5" />
           {dueLabel(state.nextReviewAt)}

@@ -165,7 +165,7 @@ export function FlashcardsGameplay({ items, paused, busy, settings, submit, onCo
           ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="text-2xl font-semibold">
+          <div className="text-3xl font-semibold tracking-tight sm:text-4xl">
             {direction === "PL_EN"
               ? current.translations.map((t) => t.text).join(", ") || current.definition
               : current.lemma}
@@ -239,7 +239,7 @@ export function FlashcardsGameplay({ items, paused, busy, settings, submit, onCo
           >
             <Eye className="mr-2 size-4" /> Reveal answer
           </Button>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {RATINGS.map(({ rating, label, className }) => (
               <Button
                 key={rating}

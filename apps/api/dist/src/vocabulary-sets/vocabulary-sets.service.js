@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VocabularySetsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const page_meta_1 = require("../common/utils/page-meta");
 const prisma_service_1 = require("../database/prisma.service");
 const SET_SENSE_SELECT = client_1.Prisma.sql `
 SELECT
@@ -81,12 +82,7 @@ let VocabularySetsService = class VocabularySetsService {
                 createdAt: r.createdAt.toISOString(),
                 updatedAt: r.updatedAt.toISOString(),
             })),
-            meta: {
-                page: query.page,
-                limit: query.limit,
-                total,
-                totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-            },
+            meta: (0, page_meta_1.pageMeta)(query.page, query.limit, total),
         };
     }
     async create(teacherId, dto) {

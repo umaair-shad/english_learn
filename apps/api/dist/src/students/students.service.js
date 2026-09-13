@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StudentsService = void 0;
 const common_1 = require("@nestjs/common");
 const access_token_util_1 = require("../common/utils/access-token.util");
+const page_meta_1 = require("../common/utils/page-meta");
 const prisma_service_1 = require("../database/prisma.service");
 const SORT_FIELD_MAP = {
     createdAt: 'created_at',
@@ -54,12 +55,7 @@ let StudentsService = class StudentsService {
         ]);
         return {
             data: rows.map((row) => this.toStudentDto(row)),
-            meta: {
-                page: query.page,
-                limit: query.limit,
-                total,
-                totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-            },
+            meta: (0, page_meta_1.pageMeta)(query.page, query.limit, total),
         };
     }
     async getById(id) {

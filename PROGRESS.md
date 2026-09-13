@@ -1,6 +1,6 @@
 # Project progress
 
-Last updated: **2026-09-12**  
+Last updated: **2026-09-13** (e2e green: 118/118)  
 Repo: `e:\fiver\project_english`  
 Client spec: `e:\fiver\Project English Learn\r.txt`
 
@@ -10,21 +10,22 @@ Use this file when switching editors. Read it first, then update the date and re
 
 ## Status
 
-**App is locally complete and running. Production deploy and a post-feature test pass are still open.**
+**Product features are locally complete. UI refresh, shared pagination, and client-confirmed collections/find-words landed 2026-09-13. API e2e is green (118/118). Production deploy is still open.**
 
 | Area | State |
 |---|---|
 | Teacher + student app | Done |
 | 4 activities + FSRS + events | Done |
 | Play links `/play/[token]` | Done |
-| Taxonomy (~1,420 categories) | Done on current DB |
+| Find words + global collections | Done (replaces fixed 1,000-category product path) |
+| Shared pagination (10 / 20 / 50 / 100 + localStorage) | Done |
 | Import/export CSV/JSON/XLSX | Done |
-| Live teacher mirror | Done |
+| Live teacher mirror | Done (single-teacher roster) |
 | Docs + backup script | Done |
-| Full Wiktextract / 1.7M load | **Not done (intentional)** |
+| Full Wiktextract / 1.7M load | **Not done — client wants it, do not start unless they confirm again** |
 | Scheduled backups | Script only, not scheduled |
 | Production HTTPS deploy | **Not done** |
-| E2E after new features | Last full gate **118/118** was *before* play tokens / taxonomy / XLSX / password change |
+| E2E after new features | **118/118** (2026-09-13). Tests updated for last-answer-wins + single-teacher live + golden `bank` search |
 
 ---
 
@@ -42,7 +43,7 @@ cd apps/web; npm run dev          # :3001
 - Students: `/s/[token]` or `/student/[token]`
 - Activity links: `/play/[token]`
 
-Postgres Docker: `vocabulary-postgres` · `vocab` / `vocab` / `vocabulary`
+Postgres Docker: `vocabulary-postgres` · `vocab` / `vocab` / `vocabulary` · host port **5434** (5432 is used by another local app)
 
 Do **not** run `prisma migrate reset`, do **not** delete `/data` or the database, do **not** run the 24GB Wiktextract pipeline unless the client explicitly asks.
 
@@ -55,26 +56,40 @@ Working systems. Extend them; do not rewrite.
 - Stack: Next.js 16 (`apps/web` :3001) + NestJS 11 (`apps/api` `/api/v1` :3000) + PostgreSQL 16 + Prisma
 - Teacher auth (JWT cookie `vocab_auth`), logout, **change password**
 - Students without passwords; hashed private URLs; regenerate / revoke
-- Vocabulary search (EN / PL / definition), CEFR, POS, category, Polish, frequency
-- Categories page lists taxonomy and opens `/teacher/vocabulary?category=`
+- Vocabulary search (EN / PL / definition / category name), CEFR, POS, Polish, frequency
+- `lexicalOnly` hides numeric / symbol / leetspeak lemmas (`0#0`, `86`, `2S`, …) — those rows are real Wiktionary data, not a broken catalog
+- **Find words** (`/teacher/categories`): topic + CEFR → preview → save a global collection
+- **Collections** (`/teacher/vocabulary-sets`): teacher-global reusable lists, not per student
+- Shared list pagination: default **10**, limits **10 / 20 / 50 / 100** stored in `localStorage` (`page-limit:*`), prev/next + jump-to-page, backend `hasNext` / `hasPrev` / `totalPages`
+- Teacher shell is viewport-locked: sidebar stays on screen; only the main pane scrolls. Vocabulary table also scrolls inside the card at 20/50/100 rows.
 - Vocabulary sets, assignments, activities
 - Activity create sources: manual, assignment, set, assigned, due, difficult, catalog (+ CEFR/category)
 - Flashcards EN→PL, PL→EN, both
 - Memory, Quiz, Fill-in-the-Blank
 - Shared `student_vocabulary_states` + FSRS (`ts-fsrs`) + review history
 - Standardized activity events
+- Student activity list progress uses latest-session **session IDs** (was looking up activity IDs, so every card showed 0%). Finish scores use last-answer-wins per word, not every attempt.
 - `/play/[token]` permanent / expiring / single-use
 - Live monitor + `liveState` (flashcard / memory / quiz)
 - Student profile: vocab, due, assignments, **distribution** (CEFR + categories)
 - Teacher learning controls: known/unknown, force learning/review, unassign, force due
 - Reports + export CSV/JSON/XLSX; import CSV/JSON/XLSX (non-destructive)
-- Taxonomy seed: `npm run seed:taxonomy` in `apps/api` → **1,420 categories**, ~45,863 sense assignments
+- Taxonomy seed still exists (`npm run seed:taxonomy`) and search can match category names, but the client rejected a fixed ~1,000-category browser
 - Current DB catalog: ~**16,760 entries / 60,657 senses** (20k sample). Keep `data/archive/baseline-20k`
 - Backup script: `pwsh -File scripts/backup-postgres.ps1` (or `npm run backup` in `apps/api`)
 - Docs: `README.md`, `docs/architecture.md`, `docs/deployment-production.md`, `docs/operations.md`
 - Cookie: set `COOKIE_SECURE=true` only behind HTTPS
 
+### Client decisions (Fiverr, 2026-09-12)
+
+1. **One teacher only.** No multi-teacher isolation.
+2. **Full vocabulary database** is wanted (~1.4M entries / 1.7M senses). Not loaded yet.
+3. **No predefined ~1,000 categories.** Serve words on the fly (example: B2 cooking).
+4. Teacher saves matching words into **global reusable collections**, not per student.
+
 Verified in browser on 2026-09-12: login, students, categories, settings, activity create filters, `/play` fill-blank start, distribution, import/export UI.
+
+UI refresh 2026-09-13: teal/cream theme (not grayscale), mobile teacher drawer, student/play learner shell, colorful dashboard and student stats.
 
 ---
 
@@ -89,17 +104,11 @@ Verified in browser on 2026-09-12: login, students, categories, settings, activi
    - Process manager (pm2/systemd)
    - Health check: `GET /api/v1/health`
 
-2. **Re-run API e2e after the new features**
+2. **API e2e** — **118/118** on 2026-09-13. Product tests now match last-answer-wins (`MATCH_FAILED` is graded, FSRS still only on rated answers), single-teacher live snapshot/watch, and `GET /vocabulary/search?q=bank` for the golden bank detail. Re-run after the next product change:
    ```powershell
    cd apps/api
-   npm test -- --runInBand
+   npm run test:e2e -- --runInBand
    ```
-   Last green gate: 118/118, 9 suites (before play tokens / taxonomy / XLSX / password). Add tests if anything fails:
-   - play-access tokens (permanent / expiring / single-use)
-   - change-password
-   - XLSX import
-   - activity selection filters
-   - taxonomy / category filter
 
 3. **Schedule backups**
    - Script exists; Windows Task Scheduler (or cron) is not set up
@@ -112,9 +121,9 @@ Verified in browser on 2026-09-12: login, students, categories, settings, activi
 
 ### Optional / only if the client asks
 
-5. **Full vocabulary load** (~1.7M processed senses on disk, unused). Would change golden sense IDs (`bank` noun = `4593`). Do not run unless requested. Do not run raw Wiktextract (23 GB).
+5. **Full vocabulary load** — client said they want the full database. Still not run. Would change golden sense IDs (`bank` noun = `4593`). Confirm again before starting. Do not run raw Wiktextract (23 GB).
 
-6. **Taxonomy names** — seed has some generic labels (`actions 1`, `basics 1`). Functional, but not editorial-quality.
+6. **Taxonomy names** — seed still helps on-the-fly search, but is no longer the product category browser.
 
 7. **Dashboard vs student list** — reports dashboard counts only students “owned” via activities/assignments (`created_by_teacher_id` / `teacher_id`). The students list is single-tenant (all students). Can look like “0 students” on the dashboard while the list shows people.
 
@@ -127,7 +136,7 @@ Verified in browser on 2026-09-12: login, students, categories, settings, activi
 - Audio / pronunciation
 - 2FA
 - AI, listening, speaking
-- Multiple teachers / classrooms
+- Multiple teachers / classrooms (client confirmed one teacher)
 - New backend or stack change
 
 ---
@@ -164,5 +173,5 @@ Verified in browser on 2026-09-12: login, students, categories, settings, activi
 
 1. Read this file.
 2. Confirm Docker Postgres is healthy and API/web start.
-3. Pick the next remaining item (usually: e2e re-run, then deploy, then scheduled backup).
+3. Pick the next remaining item (usually: production deploy, then scheduled backup). Pagination / find-words / collections / e2e 118/118 are in. Confirm before loading the full 1.7M catalog.
 4. Update **Last updated**, move finished items into **Done**, and keep **Remaining** honest.

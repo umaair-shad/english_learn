@@ -3,14 +3,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { BookPlus, CircleCheckBig, Loader2, Plus, Search } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import { api, type VocabularyListItem } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -28,11 +30,20 @@ export function AssignSenseDialog({
 }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("assign-sense");
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["vocab-search-assign", query.trim(), page],
-    queryFn: () => api.searchVocabulary(query.trim(), page, 10),
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ["vocab-search-assign", query.trim(), page, limit],
+    queryFn: () =>
+      api.listVocabulary({
+        page,
+        limit,
+        search: query.trim(),
+        lexicalOnly: true,
+        sort: "frequency",
+        order: "asc",
+      }),
     enabled: open && query.trim().length >= 1,
     placeholderData: (prev) => prev,
   });
@@ -62,7 +73,7 @@ export function AssignSenseDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="h-[96dvh] sm:h-[min(92dvh,72rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookPlus className="size-5" />
@@ -74,21 +85,24 @@ export function AssignSenseDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search lemma, definition or Polish translation…"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(1);
-            }}
-            autoFocus
-          />
+        <DialogBody>
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search lemma, definition or Polish translation…"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
+              autoFocus
+            />
+          </div>
         </div>
 
-        <div className="min-h-24">
+        <div>
           {!query.trim() ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               Type at least one character to search the dictionary.
@@ -112,6 +126,12 @@ export function AssignSenseDialog({
             </p>
           ) : (
             <div className="space-y-2">
+              <div className="hidden gap-4 px-3 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[16rem_minmax(0,1.4fr)_minmax(0,1fr)_5.5rem]">
+                <span>Word</span>
+                <span>Definition</span>
+                <span>Polish</span>
+                <span className="text-right">Assign</span>
+              </div>
               {results.map((sense) => (
                 <Row
                   key={sense.id}
@@ -124,31 +144,25 @@ export function AssignSenseDialog({
             </div>
           )}
         </div>
+        </DialogBody>
 
-        {data && data.meta.totalPages > 1 ? (
-          <DialogFooter className="items-center justify-between sm:justify-between">
-            <span className="text-xs text-muted-foreground">
-              Page {data.meta.page} of {data.meta.totalPages} · {data.meta.total} results
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= data.meta.totalPages}
-                onClick={() => setPage((p) => Math.min(data.meta.totalPages, p + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </DialogFooter>
+        {data ? (
+          <div className="shrink-0 border-t px-4 py-3 sm:px-6">
+            <ListPagination
+              page={data.meta.page}
+              limit={limit}
+              total={data.meta.total}
+              totalPages={data.meta.totalPages}
+              hasNext={data.meta.hasNext}
+              hasPrev={data.meta.hasPrev}
+              disabled={isFetching}
+              onPageChange={setPage}
+              onLimitChange={(next) => {
+                setLimit(next);
+                setPage(1);
+              }}
+            />
+          </div>
         ) : null}
       </DialogContent>
     </Dialog>
@@ -167,7 +181,7 @@ function Row({
   onAssign: () => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 rounded-md border px-3 py-2">
+    <div className="grid items-start gap-3 rounded-md border px-3 py-3 md:grid-cols-[16rem_minmax(0,1.4fr)_minmax(0,1fr)_5.5rem]">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-medium">{sense.lemma}</span>
@@ -176,22 +190,24 @@ function Row({
             <Badge variant="outline">{sense.cefrLevels[0]}</Badge>
           ) : null}
         </div>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          #{sense.id} · {sense.definition}
-        </p>
-        {sense.translations.length > 0 ? (
-          <p className="truncate text-xs">
-            <span className="text-muted-foreground">Polish: </span>
-            {sense.translations.map((t) => t.text).join(", ")}
-          </p>
-        ) : null}
+        <p className="mt-0.5 text-xs text-muted-foreground">#{sense.id}</p>
       </div>
+      <p className="min-w-0 text-sm leading-relaxed wrap-break-word">
+        {sense.definition}
+      </p>
+      <p className="min-w-0 text-sm leading-relaxed wrap-break-word">
+        {sense.translations.length > 0 ? (
+          sense.translations.map((t) => t.text).join(", ")
+        ) : (
+          <span className="text-muted-foreground">No Polish yet</span>
+        )}
+      </p>
       <Button
         size="sm"
         variant={assigned ? "ghost" : "outline"}
         disabled={assigning || assigned}
         onClick={onAssign}
-        className="shrink-0"
+        className="w-fit shrink-0 justify-self-end"
       >
         {assigning ? (
           <Loader2 className="size-4 animate-spin" />

@@ -100,7 +100,7 @@ function formatDate(value: string | null): string {
 export default function ReportsPage() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [studentId, setStudentId] = useState<string>("");
+  const [studentId, setStudentId] = useState<string>("all");
   const [activityType, setActivityType] = useState<string>("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -210,11 +210,11 @@ export default function ReportsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Status distribution</TableHead>
-                    <TableHead className="text-right">Due</TableHead>
-                    <TableHead className="text-right">Reviews</TableHead>
-                    <TableHead className="text-right">Sessions</TableHead>
+                    <TableHead className="w-[18%]">Student</TableHead>
+                    <TableHead className="w-[50%]">Status distribution</TableHead>
+                    <TableHead className="w-[10%] text-right">Due</TableHead>
+                    <TableHead className="w-[11%] text-right">Reviews</TableHead>
+                    <TableHead className="w-[11%] text-right">Sessions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -381,13 +381,13 @@ export default function ReportsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Activity</TableHead>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Sessions</TableHead>
-                  <TableHead className="text-right">Correct</TableHead>
-                  <TableHead className="text-right">Incorrect</TableHead>
-                  <TableHead className="text-right">Avg progress</TableHead>
-                  <TableHead>Last session</TableHead>
+                  <TableHead className="w-[28%]">Activity</TableHead>
+                  <TableHead className="w-[16%]">Student</TableHead>
+                  <TableHead className="w-[10%]">Sessions</TableHead>
+                  <TableHead className="w-[10%] text-right">Correct</TableHead>
+                  <TableHead className="w-[10%] text-right">Incorrect</TableHead>
+                  <TableHead className="w-[12%] text-right">Avg progress</TableHead>
+                  <TableHead className="w-[14%]">Last session</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

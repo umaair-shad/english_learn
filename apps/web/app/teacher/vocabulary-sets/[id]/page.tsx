@@ -13,6 +13,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import {
   CEFR_OPTIONS,
   POS_OPTIONS,
@@ -29,6 +31,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -218,14 +221,12 @@ export default function VocabularySetDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Lemma</TableHead>
-                  <TableHead className="hidden md:table-cell">POS</TableHead>
-                  <TableHead className="hidden md:table-cell">CEFR</TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    Definition
-                  </TableHead>
-                  <TableHead>Polish</TableHead>
-                  <TableHead className="text-right">Remove</TableHead>
+                  <TableHead className="w-[16%]">Lemma</TableHead>
+                  <TableHead className="w-[8%]">POS</TableHead>
+                  <TableHead className="w-[8%]">CEFR</TableHead>
+                  <TableHead className="w-[34%]">Definition</TableHead>
+                  <TableHead className="w-[22%]">Polish</TableHead>
+                  <TableHead className="w-[12%] text-right">Remove</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -242,31 +243,27 @@ export default function VocabularySetDetailPage() {
                         <div className="mt-1 flex flex-wrap gap-1">
                           {item.categories.map((c) => (
                             <Badge key={c.code} variant="outline">
-                              {c.code}
+                              {c.name || c.code}
                             </Badge>
                           ))}
                         </div>
                       ) : null}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       <span className="text-xs">{item.partOfSpeech}</span>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       {item.cefrLevels.length > 0
                         ? item.cefrLevels.join(", ")
                         : "—"}
                     </TableCell>
-                    <TableCell className="hidden max-w-lg lg:table-cell">
-                      <span className="text-xs text-muted-foreground">
-                        {item.definition}
-                      </span>
+                    <TableCell className="text-sm leading-relaxed text-muted-foreground">
+                      {item.definition}
                     </TableCell>
-                    <TableCell className="max-w-56">
-                      <span className="text-xs">
-                        {item.translations
-                          .map((t) => t.text)
-                          .join(", ") || "—"}
-                      </span>
+                    <TableCell className="text-sm leading-relaxed">
+                      {item.translations
+                        .map((t) => t.text)
+                        .join(", ") || "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -345,7 +342,7 @@ function EditSetDialog({
             Update the name and description of the set.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-name">Name</Label>
             <Input
@@ -363,7 +360,7 @@ function EditSetDialog({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button
             onClick={onSubmit}
@@ -397,23 +394,26 @@ function AddSensesDialog({
   const [cefr, setCefr] = useState("all");
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("set-builder");
   const [selected, setSelected] = useState<number[]>([]);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: [
       "set-builder-search",
       setId,
-      { search, pos, cefr, category, page },
+      { search, pos, cefr, category, page, limit },
     ],
     queryFn: () =>
       api.listVocabulary({
         page,
-        limit: 10,
+        limit,
         search: search || undefined,
         partOfSpeech: pos === "all" ? undefined : pos,
         cefr: cefr === "all" ? undefined : cefr,
         category: category || undefined,
-        sort: "lemma",
+        lexicalOnly: true,
+        sort: "frequency",
+        order: "asc",
       }),
     enabled: open,
     placeholderData: (prev) => prev,
@@ -440,7 +440,6 @@ function AddSensesDialog({
   }
 
   const rows = data?.data ?? [];
-  const totalPages = data?.meta.totalPages ?? 0;
 
   return (
     <Dialog
@@ -452,7 +451,7 @@ function AddSensesDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="h-[96dvh] sm:h-[min(92dvh,72rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookPlus className="size-5" />
@@ -464,7 +463,8 @@ function AddSensesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <DialogBody className="space-y-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <VocabSearchInput
             value={search}
             onChange={(v) => {
@@ -552,34 +552,25 @@ function AddSensesDialog({
           )}
         </div>
 
-        {(data?.meta.totalPages ?? 0) > 1 ? (
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Page {data?.meta.page ?? page} of {data?.meta.totalPages ?? 0} ·{" "}
-              {data?.meta.total ?? 0} results
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+        {data ? (
+          <ListPagination
+            page={data.meta.page}
+            limit={limit}
+            total={data.meta.total}
+            totalPages={data.meta.totalPages}
+            hasNext={data.meta.hasNext}
+            hasPrev={data.meta.hasPrev}
+            disabled={isFetching}
+            onPageChange={setPage}
+            onLimitChange={(next) => {
+              setLimit(next);
+              setPage(1);
+            }}
+          />
         ) : null}
+        </DialogBody>
 
-        <DialogFooter className="items-center justify-between gap-3 sm:justify-between">
+        <DialogFooter className="sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {selected.length} selected
           </span>
@@ -627,11 +618,11 @@ function SensePickRow({
             <Badge variant="outline">{sense.cefrLevels[0]}</Badge>
           ) : null}
         </div>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground wrap-break-word">
           #{sense.id} · {sense.definition}
         </p>
         {sense.translations.length > 0 ? (
-          <p className="truncate text-xs">
+          <p className="text-xs leading-relaxed wrap-break-word">
             <span className="text-muted-foreground">Polish: </span>
             {sense.translations.map((t) => t.text).join(", ")}
           </p>

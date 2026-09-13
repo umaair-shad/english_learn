@@ -3,6 +3,7 @@ export interface TeacherProfile {
     id: number;
     email: string;
     displayName: string;
+    lastLoginAt: string | null;
 }
 export declare class TeachersService {
     private readonly prisma;
@@ -33,5 +34,6 @@ export declare class TeachersService {
         id: bigint;
         email: string;
         display_name: string;
+        last_login_at: Date | null;
     }): TeacherProfile;
 }

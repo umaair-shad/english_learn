@@ -4,11 +4,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import {
   fetchActivitySenses,
   type ActivityItemShape,
 } from './activity-items.helper';
+import {
+  loadSessionAnswerStats,
+  percentComplete,
+  statsFor,
+} from './session-stats.helper';
 import {
   ActivityQueryDto,
   CreateActivityDto,
@@ -77,11 +83,6 @@ interface SessionRow {
   incorrect: number;
 }
 
-interface CompletedRow {
-  sessionId: bigint;
-  completed: bigint;
-}
-
 @Injectable()
 export class ActivitiesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -124,12 +125,15 @@ export class ActivitiesService {
 
     const ids = rows.map((r) => r.id);
     const sessions = await this.loadLatestSessions(ids);
-    const completed = await this.loadCompletedCounts([...sessions.keys()]);
+    const stats = await loadSessionAnswerStats(
+      this.prisma,
+      [...sessions.values()].map((s) => s.sessionId),
+    );
 
     return {
       data: rows.map((row) => {
         const latest = sessions.get(row.id) ?? null;
-        const progress = this.toLatestSessionDto(latest, completed);
+        const progress = this.toLatestSessionDto(latest, stats);
         return {
           id: Number(row.id),
           studentId: Number(row.student_id),
@@ -157,12 +161,7 @@ export class ActivitiesService {
           latestSession: progress,
         };
       }),
-      meta: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-      },
+      meta: pageMeta(query.page, query.limit, total),
     };
   }
 
@@ -184,7 +183,10 @@ export class ActivitiesService {
     });
     const ids = rows.map((r) => r.id);
     const sessions = await this.loadLatestSessions(ids);
-    const completed = await this.loadCompletedCounts([...sessions.keys()]);
+    const stats = await loadSessionAnswerStats(
+      this.prisma,
+      [...sessions.values()].map((s) => s.sessionId),
+    );
 
     return rows.map((row) => {
       const latest = sessions.get(row.id) ?? null;
@@ -212,7 +214,7 @@ export class ActivitiesService {
             }
           : null,
         itemCount: row._count.activity_items,
-        latestSession: this.toLatestSessionDto(latest, completed),
+        latestSession: this.toLatestSessionDto(latest, stats),
       };
     });
   }
@@ -608,44 +610,22 @@ export class ActivitiesService {
     return new Map(rows.map((row) => [row.activityId, row]));
   }
 
-  private async loadCompletedCounts(
-    sessionIds: bigint[],
-  ): Promise<Map<bigint, number>> {
-    if (sessionIds.length === 0) return new Map();
-    const rows = await this.prisma.$queryRaw<CompletedRow[]>(
-      Prisma.sql`SELECT session_id AS "sessionId", count(DISTINCT vocabulary_sense_id) AS completed
-        FROM activity_events
-        WHERE session_id IN (${Prisma.join(sessionIds)})
-          AND event_type IN ('ANSWER_CORRECT', 'ANSWER_INCORRECT')
-        GROUP BY session_id`,
-    );
-    const map = new Map<bigint, number>();
-    for (const row of rows) map.set(row.sessionId, Number(row.completed));
-    return map;
-  }
-
   private toLatestSessionDto(
     session: SessionRow | undefined | null,
-    completed: Map<bigint, number>,
+    stats: Awaited<ReturnType<typeof loadSessionAnswerStats>>,
   ): LatestSessionDto | null {
     if (!session) return null;
-    const done = completed.get(session.sessionId) ?? 0;
+    const answer = statsFor(stats, session.sessionId);
     return {
       id: Number(session.sessionId),
       status: session.status,
       startedAt: session.startedAt.toISOString(),
       finishedAt: session.finishedAt?.toISOString() ?? null,
       totalItems: session.totalItems,
-      corrected: Number(session.correct),
-      incorrect: Number(session.incorrect),
-      completed: Number(done),
-      percentComplete:
-        session.totalItems === 0
-          ? 0
-          : Math.min(
-              100,
-              Math.round((Number(done) / session.totalItems) * 100),
-            ),
+      corrected: answer.correct,
+      incorrect: answer.incorrect,
+      completed: answer.completed,
+      percentComplete: percentComplete(answer.completed, session.totalItems),
     };
   }
 }

@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, learning_status } from '@prisma/client';
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import {
   AssignmentQueryDto,
@@ -15,6 +16,7 @@ interface ProgressRow {
   assignmentId: bigint;
   total: bigint;
   mastered: bigint;
+  learning: bigint;
 }
 
 interface ItemSenseRow {
@@ -179,12 +181,7 @@ export class AssignmentsService {
             itemCount === 0 ? 0 : Math.round((masteredCount / itemCount) * 100),
         };
       }),
-      meta: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-      },
+      meta: pageMeta(query.page, query.limit, total),
     };
   }
 
@@ -461,6 +458,7 @@ export class AssignmentsService {
       createdAt: string;
       itemCount: number;
       masteredCount: number;
+      learningCount: number;
       progress: number;
     }>
   > {
@@ -476,6 +474,7 @@ export class AssignmentsService {
     return rows.map((row) => {
       const itemCount = row._count.assignment_items;
       const masteredCount = Number(progress.get(row.id)?.mastered ?? 0);
+      const learningCount = Number(progress.get(row.id)?.learning ?? 0);
       return {
         id: Number(row.id),
         title: row.title,
@@ -487,6 +486,7 @@ export class AssignmentsService {
         createdAt: row.created_at.toISOString(),
         itemCount,
         masteredCount,
+        learningCount,
         progress:
           itemCount === 0 ? 0 : Math.round((masteredCount / itemCount) * 100),
       };
@@ -549,13 +549,16 @@ export class AssignmentsService {
 
   private async loadProgress(
     assignmentIds: bigint[],
-  ): Promise<Map<bigint, { total: number; mastered: number }>> {
+  ): Promise<Map<bigint, { total: number; mastered: number; learning: number }>> {
     if (assignmentIds.length === 0) return new Map();
     const rows = await this.prisma.$queryRaw<ProgressRow[]>(
       Prisma.sql`SELECT
           ai.assignment_id AS "assignmentId",
           count(*) AS total,
-          count(*) FILTER (WHERE st.status = 'MASTERED') AS mastered
+          count(*) FILTER (WHERE st.status = 'MASTERED') AS mastered,
+          count(*) FILTER (
+            WHERE st.status IN ('ENCOUNTERED', 'LEARNING', 'REVIEWING')
+          ) AS learning
         FROM assignment_items ai
         JOIN assignments a ON a.id = ai.assignment_id
         LEFT JOIN student_vocabulary_states st
@@ -567,7 +570,11 @@ export class AssignmentsService {
     return new Map(
       rows.map((r) => [
         r.assignmentId,
-        { total: Number(r.total), mastered: Number(r.mastered) },
+        {
+          total: Number(r.total),
+          mastered: Number(r.mastered),
+          learning: Number(r.learning),
+        },
       ]),
     );
   }

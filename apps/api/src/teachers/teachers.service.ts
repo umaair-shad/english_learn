@@ -5,6 +5,7 @@ export interface TeacherProfile {
   id: number;
   email: string;
   displayName: string;
+  lastLoginAt: string | null;
 }
 
 @Injectable()
@@ -60,11 +61,15 @@ export class TeachersService {
     id: bigint;
     email: string;
     display_name: string;
+    last_login_at: Date | null;
   }): TeacherProfile {
     return {
       id: Number(teacher.id),
       email: teacher.email,
       displayName: teacher.display_name,
+      lastLoginAt: teacher.last_login_at
+        ? teacher.last_login_at.toISOString()
+        : null,
     };
   }
 }

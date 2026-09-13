@@ -77,6 +77,8 @@ export interface PaginatedMeta {
     limit: number;
     total: number;
     totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
 }
 export declare class PaginatedList {
     data: VocabularyListItem[];

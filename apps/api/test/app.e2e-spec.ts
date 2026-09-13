@@ -98,11 +98,13 @@ describe('Vocabulary API (e2e, real PostgreSQL)', () => {
 
   it('detail returns a bank entry with freq, CEFR and WordNet evidence', async () => {
     const list = await agent
-      .get('/api/v1/vocabulary')
-      .query({ search: 'bank', partOfSpeech: 'noun', limit: 20, sort: 'lemma' })
+      .get('/api/v1/vocabulary/search')
+      .query({ q: 'bank', limit: 200 })
       .expect(200);
     const listBody = list.body as PaginatedList;
-    const bankRow = listBody.data.find((r) => r.lemma === 'bank');
+    const bankRow = listBody.data.find(
+      (r) => r.lemma === 'bank' && r.partOfSpeech === 'noun',
+    );
     expect(bankRow).toBeDefined();
 
     const res = await agent

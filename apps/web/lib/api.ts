@@ -43,7 +43,7 @@ export interface StudentAccessToken {
 
 export interface PaginatedStudents {
   data: Student[];
-  meta: { page: number; limit: number; total: number; totalPages: number };
+  meta: PaginatedMeta;
 }
 
 export interface ResolvedStudent {
@@ -116,6 +116,8 @@ export interface PaginatedMeta {
   limit: number;
   total: number;
   totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
 }
 
 export interface PaginatedList {
@@ -199,6 +201,7 @@ export interface VocabularyQuery {
   category?: string;
   hasPolishTranslation?: boolean;
   frequencyRank?: number;
+  lexicalOnly?: boolean;
   sort?: SortField;
   order?: SortOrder;
 }
@@ -215,6 +218,7 @@ function buildQuery(query: VocabularyQuery): string {
     params.set("hasPolishTranslation", String(query.hasPolishTranslation));
   }
   if (query.frequencyRank) params.set("frequencyRank", String(query.frequencyRank));
+  if (query.lexicalOnly) params.set("lexicalOnly", "true");
   if (query.sort) params.set("sort", query.sort);
   if (query.order) params.set("order", query.order);
   const raw = params.toString();
@@ -321,6 +325,9 @@ export const api = {
 
   listVocabulary(query: VocabularyQuery, signal?: AbortSignal): Promise<PaginatedList> {
     return getJson(`/vocabulary${buildQuery(query)}`, { signal });
+  },
+  listVocabularyIds(query: VocabularyQuery): Promise<{ senseIds: number[]; total: number }> {
+    return getJson(`/vocabulary/ids${buildQuery({ ...query, page: 1 })}`);
   },
   searchVocabulary(q: string, page: number, limit: number): Promise<PaginatedList> {
     return getJson(`/vocabulary/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`);
@@ -1018,6 +1025,7 @@ export interface StudentAssignment {
   createdAt: string;
   itemCount: number;
   masteredCount: number;
+  learningCount: number;
   progress: number;
 }
 
@@ -1194,6 +1202,7 @@ export interface ActivitySessionDetail {
   incorrectCount: number;
   completedCount: number;
   percentComplete: number;
+  answeredSenseIds?: number[];
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;

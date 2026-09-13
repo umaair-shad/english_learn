@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -36,6 +37,26 @@ export function ActivityGameplay({
   mode?: "student" | "play";
 }) {
   const runtime = useActivityRuntime(token, activityId, mode);
+  const session = runtime.session;
+  const answeredIds = new Set(session?.answeredSenseIds ?? []);
+  const remainingCount =
+    session &&
+    runtime.activity &&
+    (session.status === "ACTIVE" || session.status === "PAUSED")
+      ? runtime.activity.items.filter((item) => !answeredIds.has(item.senseId))
+          .length
+      : runtime.activity?.items.length ?? 0;
+
+  useEffect(() => {
+    if (
+      runtime.phase === "playing" &&
+      session?.status === "ACTIVE" &&
+      remainingCount === 0 &&
+      answeredIds.size > 0
+    ) {
+      void runtime.finish();
+    }
+  }, [runtime.phase, session?.status, remainingCount, answeredIds.size]);
 
   if (runtime.activityLoading && !runtime.activity) {
     return (
@@ -61,11 +82,14 @@ export function ActivityGameplay({
   }
 
   const activity = runtime.activity;
-  const session = runtime.session;
   const progress = session
     ? session.percentComplete
     : runtime.latestSession?.percentComplete ?? 0;
   const paused = session?.status === "PAUSED";
+  const remainingItems =
+    session && (session.status === "ACTIVE" || session.status === "PAUSED")
+      ? activity.items.filter((item) => !answeredIds.has(item.senseId))
+      : activity.items;
 
   const complete = () => {
     if (runtime.session?.status === "ACTIVE") void runtime.finish();
@@ -94,9 +118,9 @@ export function ActivityGameplay({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-violet-500 transition-all"
+                className="h-full rounded-full bg-primary transition-all"
                 style={{ width: `${Math.min(100, progress)}%` }}
               />
             </div>
@@ -168,9 +192,13 @@ export function ActivityGameplay({
 
           <Card>
             <CardContent className="pt-6">
-              {activity.activityType === "FLASHCARDS" ? (
+              {remainingItems.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  You already answered every word in this session.
+                </p>
+              ) : activity.activityType === "FLASHCARDS" ? (
                 <FlashcardsGameplay
-                  items={activity.items}
+                  items={remainingItems}
                   paused={paused}
                   busy={runtime.busy}
                   settings={activity.settings}
@@ -179,7 +207,7 @@ export function ActivityGameplay({
                 />
               ) : activity.activityType === "MEMORY" ? (
                 <MemoryGameplay
-                  items={activity.items}
+                  items={remainingItems}
                   paused={paused}
                   busy={runtime.busy}
                   settings={activity.settings}
@@ -188,7 +216,7 @@ export function ActivityGameplay({
                 />
               ) : activity.activityType === "QUIZ" ? (
                 <QuizGameplay
-                  items={activity.items}
+                  items={remainingItems}
                   paused={paused}
                   busy={runtime.busy}
                   settings={activity.settings}
@@ -197,7 +225,7 @@ export function ActivityGameplay({
                 />
               ) : (
                 <FillBlankGameplay
-                  items={activity.items}
+                  items={remainingItems}
                   paused={paused}
                   busy={runtime.busy}
                   settings={activity.settings}
@@ -251,12 +279,13 @@ export function ActivityGameplay({
               Activity complete
             </CardTitle>
             <CardDescription>
-              Your results have been saved to your learning profile.
+              Latest answer for each word is what counts. A retry replaces the
+              earlier miss.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Metric label="Answered" value={session.completedCount} />
+              <Metric label="Words" value={session.completedCount} />
               <Metric
                 label="Correct"
                 value={session.correctCount}

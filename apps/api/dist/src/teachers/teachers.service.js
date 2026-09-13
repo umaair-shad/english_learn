@@ -60,6 +60,9 @@ let TeachersService = class TeachersService {
             id: Number(teacher.id),
             email: teacher.email,
             displayName: teacher.display_name,
+            lastLoginAt: teacher.last_login_at
+                ? teacher.last_login_at.toISOString()
+                : null,
         };
     }
 };

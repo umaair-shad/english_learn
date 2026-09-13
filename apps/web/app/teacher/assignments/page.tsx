@@ -10,6 +10,8 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import {
   ASSIGNMENT_STATUSES,
   api,
@@ -25,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -57,23 +60,23 @@ export default function AssignmentsPage() {
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("assignments");
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["assignments", { studentFilter, status, search, page }],
+    queryKey: ["assignments", { studentFilter, status, search, page, limit }],
     queryFn: () =>
       api.listAssignments({
         studentId: studentFilter === "all" ? undefined : Number(studentFilter),
         status: status === "all" ? undefined : (status as (typeof ASSIGNMENT_STATUSES)[number]),
         search: search || undefined,
         page,
-        limit: 10,
+        limit,
       }),
     placeholderData: (prev) => prev,
   });
 
   const rows = data?.data ?? [];
-  const totalPages = data?.meta.totalPages ?? 0;
 
   function resetPage() {
     setPage(1);
@@ -81,7 +84,7 @@ export default function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Assignments</h1>
           <p className="text-sm text-muted-foreground">
@@ -168,13 +171,11 @@ export default function AssignmentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Assignment</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Student
-                  </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Due</TableHead>
-                  <TableHead className="text-right">Progress</TableHead>
+                  <TableHead className="w-[36%]">Assignment</TableHead>
+                  <TableHead className="w-[20%]">Student</TableHead>
+                  <TableHead className="w-[14%]">Status</TableHead>
+                  <TableHead className="w-[12%]">Due</TableHead>
+                  <TableHead className="w-[18%] text-right">Progress</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -192,13 +193,13 @@ export default function AssignmentsPage() {
                         {row.itemCount} items · {row.masteredCount} mastered
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       {row.student.displayName}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <AssignmentStatusBadge status={row.status} />
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell>
                       <span className="text-xs text-muted-foreground">
                         {row.dueAt
                           ? new Date(row.dueAt).toLocaleDateString()
@@ -216,29 +217,20 @@ export default function AssignmentsPage() {
             </Table>
           )}
 
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">
-              Page {data?.meta.page ?? page} of {Math.max(totalPages, 1)}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1 || isFetching}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages || isFetching}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <ListPagination
+            page={data?.meta.page ?? page}
+            limit={limit}
+            total={data?.meta.total ?? 0}
+            totalPages={data?.meta.totalPages ?? 0}
+            hasNext={data?.meta.hasNext}
+            hasPrev={data?.meta.hasPrev}
+            disabled={isFetching}
+            onPageChange={setPage}
+            onLimitChange={(next) => {
+              setLimit(next);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 
@@ -276,7 +268,7 @@ function StudentFilterSelect({
 }) {
   const { data } = useQuery({
     queryKey: ["students-for-filter"],
-    queryFn: () => api.listStudents({ limit: 200 }),
+    queryFn: () => api.listStudents({ limit: 100, isActive: "true", sort: "displayName", order: "asc" }),
     placeholderData: (prev) => prev,
   });
 
@@ -315,10 +307,21 @@ function CreateAssignmentDialog({
   const [senseIds, setSenseIds] = useState<number[]>([]);
   const [senseQuery, setSenseQuery] = useState("");
 
-  const { data: students } = useQuery({
+  const {
+    data: students,
+    isLoading: studentsLoading,
+    isError: studentsError,
+    refetch: refetchStudents,
+  } = useQuery({
     queryKey: ["students-for-create"],
-    queryFn: () => api.listStudents({ limit: 200 }),
-    placeholderData: (prev) => prev,
+    queryFn: () =>
+      api.listStudents({
+        limit: 100,
+        isActive: "true",
+        sort: "displayName",
+        order: "asc",
+      }),
+    enabled: open,
   });
 
   const { data: sets } = useQuery({
@@ -391,7 +394,7 @@ function CreateAssignmentDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="h-[96dvh] sm:h-[min(92dvh,72rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BriefcaseBusiness className="size-5" />
@@ -403,22 +406,51 @@ function CreateAssignmentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DialogBody className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Student</Label>
-              <Select value={studentId} onValueChange={setStudentId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a student" />
+              <Select
+                value={studentId || undefined}
+                onValueChange={setStudentId}
+                disabled={studentsLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={
+                      studentsLoading
+                        ? "Loading students…"
+                        : studentsError
+                          ? "Could not load students"
+                          : "Choose a student"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {students?.data.map((s) => (
+                  {(students?.data ?? []).map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {s.displayName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {studentsError ? (
+                <p className="text-xs text-destructive">
+                  Student list failed.{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => void refetchStudents()}
+                  >
+                    Retry
+                  </button>
+                </p>
+              ) : null}
+              {students && students.data.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No students yet. Add a student first, then come back here.
+                </p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="due-at">Due date (optional)</Label>
@@ -445,13 +477,13 @@ function CreateAssignmentDialog({
             <Label htmlFor="description">Description (optional)</Label>
             <textarea
               id="description"
-              className="min-h-16 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div className="space-y-2">
               <Label>From vocabulary sets</Label>
               {!sets ? (
@@ -461,11 +493,11 @@ function CreateAssignmentDialog({
                   No active sets available.
                 </p>
               ) : (
-                <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+                <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
                   {sets.data.map((set) => (
                     <label
                       key={set.id}
-                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                      className="flex cursor-pointer items-start gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
                     >
                       <input
                         type="checkbox"
@@ -477,10 +509,12 @@ function CreateAssignmentDialog({
                               : [...prev, set.id],
                           )
                         }
-                        className="size-4"
+                        className="mt-0.5 size-4 shrink-0"
                       />
-                      <span className="flex-1 truncate">{set.name}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="min-w-0 flex-1 wrap-break-word">
+                        {set.name}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
                         {set.itemCount}
                       </span>
                     </label>
@@ -507,7 +541,7 @@ function CreateAssignmentDialog({
                   No senses matched.
                 </p>
               ) : (
-                <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+                <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
                   {senseResults.data.map((sense) => (
                     <button
                       key={sense.id}
@@ -519,14 +553,14 @@ function CreateAssignmentDialog({
                         type="checkbox"
                         checked={senseIds.includes(sense.id)}
                         readOnly
-                        className="mt-0.5 size-4"
+                        className="mt-0.5 size-4 shrink-0"
                       />
                       <span className="min-w-0">
                         <span className="font-medium">{sense.lemma}</span>
                         <span className="ml-2 text-xs text-muted-foreground">
                           #{sense.id}
                         </span>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground wrap-break-word">
                           {sense.definition}
                         </p>
                       </span>
@@ -583,9 +617,9 @@ function CreateAssignmentDialog({
               Failed to create the assignment. Check the inputs and try again.
             </p>
           ) : null}
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="items-center justify-between gap-3 sm:justify-between">
+        <DialogFooter className="sm:justify-between">
           <span className="text-xs text-muted-foreground">
             {totalKnown > 0
               ? `~${totalKnown} senses will be assigned`

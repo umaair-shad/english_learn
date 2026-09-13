@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import { ActivityEventsService } from './activity-events.service';
 import {
@@ -17,6 +18,11 @@ import { RealtimeGateway } from '../realtime/realtime.gateway';
 import type { MirrorPayload } from '../realtime/realtime.types';
 import { CreateEventDto, SessionEventListQueryDto } from './dto/activities.dto';
 import type { ActivityItemShape } from './activity-items.helper';
+import {
+  loadSessionAnswerStats,
+  percentComplete,
+  statsFor,
+} from './session-stats.helper';
 
 export interface ActivitySessionDto {
   id: number;
@@ -33,6 +39,7 @@ export interface ActivitySessionDto {
   incorrectCount: number;
   completedCount: number;
   percentComplete: number;
+  answeredSenseIds: number[];
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
@@ -421,13 +428,15 @@ export class ActivitySessionsService {
         metadata: dto.metadata ?? null,
       });
 
+      const answer = statsFor(
+        await loadSessionAnswerStats(tx, [session.id]),
+        session.id,
+      );
       await tx.activity_sessions.update({
         where: { id: session.id },
         data: {
-          correct_count:
-            dto.eventType === 'ANSWER_CORRECT' ? { increment: 1 } : undefined,
-          incorrect_count:
-            dto.eventType === 'ANSWER_INCORRECT' ? { increment: 1 } : undefined,
+          correct_count: answer.correct,
+          incorrect_count: answer.incorrect,
           current_item_index: item ? item.position : undefined,
           last_activity_at: new Date(),
           updated_at: new Date(),
@@ -494,7 +503,7 @@ export class ActivitySessionsService {
     query: SessionEventListQueryDto,
   ): Promise<{
     data: SessionEventListItemDto[];
-    meta: { page: number; limit: number; total: number };
+    meta: ReturnType<typeof pageMeta>;
   }> {
     const session = await this.prisma.activity_sessions.findUnique({
       where: { id: BigInt(sessionId) },
@@ -534,7 +543,7 @@ export class ActivitySessionsService {
                 partOfSpeech: String(r.partOfSpeech),
               },
       })),
-      meta: { page: query.page, limit: query.limit, total },
+      meta: pageMeta(query.page, query.limit, total),
     };
   }
 
@@ -609,9 +618,9 @@ export class ActivitySessionsService {
     }>,
   ): Promise<SessionListItemDto[]> {
     const ids = rows.map((r) => r.id);
-    const completed = await this.loadCompletedCounts(ids);
+    const stats = await loadSessionAnswerStats(this.prisma, ids);
     return rows.map((row) => {
-      const done = completed.get(row.id) ?? 0;
+      const answer = statsFor(stats, row.id);
       return {
         id: Number(row.id),
         status: row.status,
@@ -621,34 +630,12 @@ export class ActivitySessionsService {
         pausedAt: row.paused_at?.toISOString() ?? null,
         currentItemIndex: row.current_item_index,
         totalItems: row.total_items,
-        correctCount: Number(row.correct_count),
-        incorrectCount: Number(row.incorrect_count),
-        completedCount: Number(done),
-        percentComplete:
-          row.total_items === 0
-            ? 0
-            : Math.min(100, Math.round((Number(done) / row.total_items) * 100)),
+        correctCount: answer.correct,
+        incorrectCount: answer.incorrect,
+        completedCount: answer.completed,
+        percentComplete: percentComplete(answer.completed, row.total_items),
       };
     });
-  }
-
-  private async loadCompletedCounts(
-    sessionIds: bigint[],
-  ): Promise<Map<bigint, number>> {
-    if (sessionIds.length === 0) return new Map();
-    const rows = await this.prisma.$queryRaw<
-      Array<{ sessionId: bigint; completed: bigint }>
-    >(
-      Prisma.sql`SELECT session_id AS "sessionId",
-                 count(DISTINCT vocabulary_sense_id) AS completed
-        FROM activity_events
-        WHERE session_id IN (${Prisma.join(sessionIds)})
-          AND event_type IN ('ANSWER_CORRECT', 'ANSWER_INCORRECT')
-        GROUP BY session_id`,
-    );
-    const map = new Map<bigint, number>();
-    for (const row of rows) map.set(row.sessionId, Number(row.completed));
-    return map;
   }
 
   private async toActiveSessionDto(
@@ -676,8 +663,10 @@ export class ActivitySessionsService {
       status: string;
     } | null,
   ): Promise<ActivitySessionDto> {
-    const completed =
-      (await this.loadCompletedCounts([session.id])).get(session.id) ?? 0;
+    const answer = statsFor(
+      await loadSessionAnswerStats(this.prisma, [session.id]),
+      session.id,
+    );
     return {
       id: Number(session.id),
       activityId: Number(session.activity_id),
@@ -689,13 +678,11 @@ export class ActivitySessionsService {
       pausedAt: session.paused_at?.toISOString() ?? null,
       currentItemIndex: session.current_item_index,
       totalItems: session.total_items,
-      correctCount: Number(session.correct_count),
-      incorrectCount: Number(session.incorrect_count),
-      completedCount: completed,
-      percentComplete:
-        session.total_items === 0
-          ? 0
-          : Math.min(100, Math.round((completed / session.total_items) * 100)),
+      correctCount: answer.correct,
+      incorrectCount: answer.incorrect,
+      completedCount: answer.completed,
+      percentComplete: percentComplete(answer.completed, session.total_items),
+      answeredSenseIds: answer.answeredSenseIds,
       metadata: (session.metadata as Record<string, unknown> | null) ?? null,
       createdAt: session.created_at.toISOString(),
       updatedAt: session.updated_at.toISOString(),

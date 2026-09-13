@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -276,15 +277,11 @@ export default function ActivityDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Lemma</TableHead>
-                  <TableHead className="hidden md:table-cell">CEFR</TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    Definition
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    Polish
-                  </TableHead>
-                  <TableHead className="text-right">Position</TableHead>
+                  <TableHead className="w-[16%]">Lemma</TableHead>
+                  <TableHead className="w-[8%]">CEFR</TableHead>
+                  <TableHead className="w-[42%]">Definition</TableHead>
+                  <TableHead className="w-[24%]">Polish</TableHead>
+                  <TableHead className="w-[10%] text-right">Position</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -301,20 +298,16 @@ export default function ActivityDetailPage() {
                         {item.partOfSpeech}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       {item.cefrLevels.length > 0
                         ? item.cefrLevels.join(", ")
                         : "—"}
                     </TableCell>
-                    <TableCell className="hidden max-w-md lg:table-cell">
-                      <span className="text-xs text-muted-foreground">
-                        {item.definition}
-                      </span>
+                    <TableCell className="text-sm leading-relaxed text-muted-foreground">
+                      {item.definition}
                     </TableCell>
-                    <TableCell className="hidden max-w-56 lg:table-cell">
-                      <span className="text-xs">
-                        {item.translations.map((t) => t.text).join(", ") || "—"}
-                      </span>
+                    <TableCell className="text-sm leading-relaxed">
+                      {item.translations.map((t) => t.text).join(", ") || "—"}
                     </TableCell>
                     <TableCell className="text-right text-sm tabular-nums">
                       {item.position}
@@ -352,16 +345,14 @@ export default function ActivityDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Session</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Started
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">Ended</TableHead>
-                  <TableHead className="text-right">
+                  <TableHead className="w-[24%]">Session</TableHead>
+                  <TableHead className="w-[12%]">Status</TableHead>
+                  <TableHead className="w-[18%]">Started</TableHead>
+                  <TableHead className="w-[18%]">Ended</TableHead>
+                  <TableHead className="w-[14%] text-right">
                     Correct / answered
                   </TableHead>
-                  <TableHead className="text-right">Progress</TableHead>
+                  <TableHead className="w-[14%] text-right">Progress</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -384,12 +375,12 @@ export default function ActivityDetailPage() {
                     <TableCell>
                       <StatusBadge status={session.status} />
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       <span className="text-xs text-muted-foreground">
                         {new Date(session.startedAt).toLocaleString()}
                       </span>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       <span className="text-xs text-muted-foreground">
                         {session.finishedAt
                           ? new Date(session.finishedAt).toLocaleString()
@@ -488,7 +479,7 @@ function EditActivityDialog({
             Update the title and description. Items and sessions are untouched.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-activity-title">Title</Label>
             <Input
@@ -508,7 +499,7 @@ function EditActivityDialog({
               disabled={disabled}
             />
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button
             onClick={() => mutation.mutate()}
@@ -546,7 +537,7 @@ function CancelActivityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Ban className="size-5" />
@@ -599,7 +590,7 @@ function DeleteActivityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Ban className="size-5" />

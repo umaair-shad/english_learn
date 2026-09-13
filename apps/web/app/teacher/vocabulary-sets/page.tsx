@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layers, LibraryBig, Loader2, Plus, Eye } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
+import { usePageLimit } from "@/lib/use-page-limit";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -47,18 +50,19 @@ export default function VocabularySetsPage() {
   const [search, setSearch] = useState("");
   const [isActive, setIsActive] = useState("all");
   const [page, setPage] = useState(1);
+  const { limit, setLimit } = usePageLimit("vocabulary-sets");
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["vocabulary-sets", { search, isActive, page }],
+    queryKey: ["vocabulary-sets", { search, isActive, page, limit }],
     queryFn: () =>
       api.listVocabularySets({
         search: search || undefined,
         isActive: isActive === "all" ? undefined : isActive,
         page,
-        limit: 10,
+        limit,
       }),
     placeholderData: (prev) => prev,
   });
@@ -79,7 +83,6 @@ export default function VocabularySetsPage() {
   });
 
   const rows = data?.data ?? [];
-  const totalPages = data?.meta.totalPages ?? 0;
 
   function resetPage() {
     setPage(1);
@@ -89,9 +92,10 @@ export default function VocabularySetsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Vocabulary Sets</h1>
+          <h1 className="text-2xl font-semibold">Collections</h1>
           <p className="text-sm text-muted-foreground">
-            Reusable groups of senses that can be assigned to students.
+            Global reusable word lists. Save them once, then assign the same
+            collection to any student.
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
@@ -163,13 +167,11 @@ export default function VocabularySetsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Description
-                  </TableHead>
-                  <TableHead className="text-right">Items</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Open</TableHead>
+                  <TableHead className="w-[24%]">Name</TableHead>
+                  <TableHead className="w-[44%]">Description</TableHead>
+                  <TableHead className="w-[10%] text-right">Items</TableHead>
+                  <TableHead className="w-[12%]">Status</TableHead>
+                  <TableHead className="w-[10%] text-right">Open</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,8 +183,8 @@ export default function VocabularySetsPage() {
                         {set.name}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden max-w-64 truncate md:table-cell">
-                      <span className="text-xs text-muted-foreground">
+                    <TableCell>
+                      <span className="text-sm leading-relaxed text-muted-foreground">
                         {set.description ?? "—"}
                       </span>
                     </TableCell>
@@ -213,29 +215,20 @@ export default function VocabularySetsPage() {
             </Table>
           )}
 
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">
-              Page {data?.meta.page ?? page} of {Math.max(totalPages, 1)}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1 || isFetching}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages || isFetching}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <ListPagination
+            page={data?.meta.page ?? page}
+            limit={limit}
+            total={data?.meta.total ?? 0}
+            totalPages={data?.meta.totalPages ?? 0}
+            hasNext={data?.meta.hasNext}
+            hasPrev={data?.meta.hasPrev}
+            disabled={isFetching}
+            onPageChange={setPage}
+            onLimitChange={(next) => {
+              setLimit(next);
+              setPage(1);
+            }}
+          />
         </CardContent>
       </Card>
 
@@ -250,7 +243,7 @@ export default function VocabularySetsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent size="md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <LibraryBig className="size-5" />
@@ -261,7 +254,7 @@ export default function VocabularySetsPage() {
               builder.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="set-name">Name</Label>
               <Input
@@ -287,7 +280,7 @@ export default function VocabularySetsPage() {
                 Failed to create the set. Name is required.
               </p>
             ) : null}
-          </div>
+          </DialogBody>
           <DialogFooter>
             <Button
               onClick={() => createMutation.mutate()}

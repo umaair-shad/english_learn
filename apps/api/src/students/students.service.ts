@@ -8,6 +8,7 @@ import {
   generateAccessTokenPair,
   accessTokenUrl,
 } from '../common/utils/access-token.util';
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import {
   AccessTokenOptionsDto,
@@ -96,12 +97,7 @@ export class StudentsService {
 
     return {
       data: rows.map((row) => this.toStudentDto(row)),
-      meta: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-      },
+      meta: pageMeta(query.page, query.limit, total),
     };
   }
 

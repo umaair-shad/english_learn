@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { ActivityGameplay } from "@/components/activities/gameplay/activity-gameplay";
+import { LearnerShell } from "@/components/learner-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PlayActivityPage() {
@@ -18,31 +19,33 @@ export default function PlayActivityPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-8">
+      <LearnerShell eyebrow="Activity link" accessToken={token}>
         <Skeleton className="h-28 w-full" />
         <Skeleton className="h-64 w-full" />
-      </div>
+      </LearnerShell>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-muted-foreground">
-        This activity link is invalid, expired, or has already been used.
-      </div>
+      <LearnerShell eyebrow="Activity link" accessToken={token}>
+        <div className="rounded-2xl bg-card p-8 text-center text-sm text-muted-foreground shadow-sm">
+          This activity link is invalid, expired, or has already been used.
+        </div>
+      </LearnerShell>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <p className="mb-4 text-sm text-muted-foreground">
-        {data.access.student.displayName} · {data.access.linkType.toLowerCase()} link
-      </p>
+    <LearnerShell
+      eyebrow={`${data.access.student.displayName} · ${data.access.linkType.toLowerCase()} link`}
+      accessToken={token}
+    >
       <ActivityGameplay
         token={token}
         activityId={data.access.activityId}
         mode="play"
       />
-    </div>
+    </LearnerShell>
   );
 }

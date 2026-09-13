@@ -31,6 +31,9 @@ let VocabularyController = class VocabularyController {
     async search(query) {
         return this.service.search(query);
     }
+    listIds(query) {
+        return this.service.listIds(query);
+    }
     async detail(id) {
         return this.service.detail(id);
     }
@@ -40,7 +43,13 @@ __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Search and paginate vocabulary senses' }),
     (0, swagger_1.ApiQuery)({ name: 'page', required: false, example: 1 }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, example: 20 }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, example: 10 }),
+    (0, swagger_1.ApiQuery)({
+        name: 'lexicalOnly',
+        required: false,
+        type: Boolean,
+        description: 'Hide numeric, symbol, and leetspeak lemmas',
+    }),
     (0, swagger_1.ApiQuery)({
         name: 'search',
         required: false,
@@ -84,6 +93,14 @@ __decorate([
     __metadata("design:paramtypes", [vocabulary_query_dto_1.SearchVocabularyDto]),
     __metadata("design:returntype", Promise)
 ], VocabularyController.prototype, "search", null);
+__decorate([
+    (0, common_1.Get)('ids'),
+    (0, swagger_1.ApiOperation)({ summary: 'Sense IDs matching the current vocabulary filters' }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [vocabulary_query_dto_1.ListVocabularyDto]),
+    __metadata("design:returntype", void 0)
+], VocabularyController.prototype, "listIds", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({

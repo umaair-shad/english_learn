@@ -22,6 +22,7 @@ export declare class StudentAccessController {
         createdAt: string;
         itemCount: number;
         masteredCount: number;
+        learningCount: number;
         progress: number;
     }[]>;
     assignment(token: string, assignmentId: number): Promise<import("../assignments/assignments.service").AssignmentDetail>;

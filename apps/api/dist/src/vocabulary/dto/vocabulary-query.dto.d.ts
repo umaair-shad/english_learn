@@ -11,6 +11,7 @@ export declare class ListVocabularyDto {
     category?: string;
     hasPolishTranslation?: boolean;
     frequencyRank?: number;
+    lexicalOnly?: boolean;
     sort: VocabularySort;
     order: 'asc' | 'desc';
 }

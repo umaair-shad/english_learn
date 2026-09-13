@@ -13,6 +13,7 @@ exports.LearningService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const fsrs_service_1 = require("../fsrs/fsrs.service");
+const page_meta_1 = require("../common/utils/page-meta");
 const prisma_service_1 = require("../database/prisma.service");
 const MASTERED_STABILITY_DAYS = 21;
 const DUE_CONDITION = client_1.Prisma.sql `(
@@ -127,12 +128,7 @@ let LearningService = class LearningService {
         const total = Number(counted[0]?.total ?? 0);
         return {
             data: await this.mapRows(studentId, rows),
-            meta: {
-                page: query.page,
-                limit: query.limit,
-                total,
-                totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-            },
+            meta: (0, page_meta_1.pageMeta)(query.page, query.limit, total),
         };
     }
     async detail(studentId, senseId) {
@@ -378,12 +374,7 @@ let LearningService = class LearningService {
         const total = Number(counted[0]?.total ?? 0);
         return {
             data: await this.mapRows(studentId, rows),
-            meta: {
-                page: query.page,
-                limit: query.limit,
-                total,
-                totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-            },
+            meta: (0, page_meta_1.pageMeta)(query.page, query.limit, total),
         };
     }
     async summary(studentId) {
@@ -568,7 +559,7 @@ let LearningService = class LearningService {
     buildStudentWhere(studentId, query) {
         const clauses = [client_1.Prisma.sql `svs.student_id = ${studentId}`];
         if (query.status) {
-            clauses.push(client_1.Prisma.sql `svs.status = ${query.status}`);
+            clauses.push(client_1.Prisma.sql `svs.status = CAST(${query.status} AS learning_status)`);
         }
         if (query.partOfSpeech) {
             clauses.push(client_1.Prisma.sql `e.part_of_speech = ${query.partOfSpeech}`);

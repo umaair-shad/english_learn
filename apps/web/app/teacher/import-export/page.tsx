@@ -10,6 +10,7 @@ import {
   Download,
   FileText,
   Loader2,
+  X,
 } from "lucide-react";
 import {
   api,
@@ -70,6 +71,84 @@ const DATASETS: DatasetDef[] = [
     description: "Session results including correctness and progress.",
   },
 ];
+
+const IMPORT_COLUMNS = [
+  { name: "lemma", required: true, note: "English word, e.g. kitchen" },
+  { name: "partOfSpeech", required: true, note: "noun, verb, adjective…" },
+  { name: "definition", required: true, note: "English meaning of this sense" },
+  { name: "translations", required: false, note: "Polish; use ; between several" },
+  { name: "examples", required: false, note: "Example sentence; several with ;" },
+  { name: "cefrLevels", required: false, note: "A1, A2, B1… (or ;-separated)" },
+  { name: "tags", required: false, note: "Optional labels" },
+  { name: "senseIdHint", required: false, note: "Stable id if you already have one" },
+] as const;
+
+const SAMPLE_ROWS = [
+  {
+    lemma: "kitchen",
+    partOfSpeech: "noun",
+    definition: "A room where food is prepared and cooked.",
+    translations: "kuchnia",
+    examples: "We cooked dinner in the kitchen.",
+    cefrLevels: "A1",
+    tags: "teacher-sample",
+    senseIdHint: "",
+  },
+  {
+    lemma: "borrow",
+    partOfSpeech: "verb",
+    definition:
+      "To take and use something belonging to someone else, intending to return it.",
+    translations: "pożyczać;wypożyczać",
+    examples: "Can I borrow your pen?",
+    cefrLevels: "A2",
+    tags: "teacher-sample",
+    senseIdHint: "",
+  },
+];
+
+function downloadBlob(filename: string, mime: string, content: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadSampleCsv() {
+  const headers = IMPORT_COLUMNS.map((c) => c.name);
+  const lines = [
+    headers.join(","),
+    ...SAMPLE_ROWS.map((row) =>
+      headers
+        .map((key) => {
+          const value = String(row[key as keyof typeof row] ?? "");
+          return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+        })
+        .join(","),
+    ),
+  ];
+  downloadBlob("vocabulary-import-sample.csv", "text/csv;charset=utf-8", lines.join("\n"));
+}
+
+function downloadSampleJson() {
+  const rows = SAMPLE_ROWS.map((row) => ({
+    lemma: row.lemma,
+    partOfSpeech: row.partOfSpeech,
+    definition: row.definition,
+    translations: row.translations.split(";"),
+    examples: [row.examples],
+    cefrLevels: [row.cefrLevels],
+    tags: [row.tags],
+  }));
+  downloadBlob(
+    "vocabulary-import-sample.json",
+    "application/json",
+    `${JSON.stringify(rows, null, 2)}\n`,
+  );
+}
 
 function ExportDatasetCard({ def }: { def: DatasetDef }) {
   const [format, setFormat] = useState<ExportFormat>("csv");
@@ -170,75 +249,83 @@ function ExportDatasetCard({ def }: { def: DatasetDef }) {
 
 export default function ImportExportPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const [fileInfo, setFileInfo] = useState<string | null>(null);
-  const [dryRun, setDryRun] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<{
+    file: File;
+    text: string;
+    format: "json" | "csv" | "xlsx";
+  } | null>(null);
+  const [busy, setBusy] = useState<"preview" | "import" | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function applyPreview(file: File, text: string, format: "json" | "csv" | "xlsx") {
-    setBusy(true);
-    setError(null);
+  function clearFile() {
+    setSelected(null);
     setResult(null);
-    void (async () => {
-      try {
-        const res = await api.importVocabulary(
-          format === "json"
-            ? {
-                format: "json",
-                rows: JSON.parse(text) as ImportVocabularyRow[],
-                dryRun: true,
-              }
-            : { format, content: text, dryRun: true },
-        );
-        setFileInfo(`${file.name} (${file.size} bytes)`);
-        setResult(res);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Could not preview the file.",
-        );
-      } finally {
-        setBusy(false);
-      }
-    })();
+    setError(null);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
-  function applyImport(file: File, text: string, format: "json" | "csv" | "xlsx") {
-    setBusy(true);
+  async function runImport(
+    payload: {
+      file: File;
+      text: string;
+      format: "json" | "csv" | "xlsx";
+    },
+    dryRun: boolean,
+  ) {
+    setBusy(dryRun ? "preview" : "import");
     setError(null);
-    setResult(null);
-    void (async () => {
-      try {
-        const payload: { format: "json" | "csv" | "xlsx"; rows?: ImportVocabularyRow[]; content?: string } =
-          format === "json"
-            ? { format: "json", rows: JSON.parse(text) as ImportVocabularyRow[] }
-            : { format, content: text };
-        const res = await api.importVocabulary(payload);
-        setFileInfo(`${file.name} (${file.size} bytes)`);
-        setResult(res);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Could not import the file.",
-        );
-      } finally {
-        setBusy(false);
-      }
-    })();
+    if (dryRun) setResult(null);
+    try {
+      const res = await api.importVocabulary(
+        payload.format === "json"
+          ? {
+              format: "json",
+              rows: JSON.parse(payload.text) as ImportVocabularyRow[],
+              dryRun,
+            }
+          : { format: payload.format, content: payload.text, dryRun },
+      );
+      setResult(res);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : dryRun
+            ? "Could not preview the file."
+            : "Could not import the file.",
+      );
+    } finally {
+      setBusy(null);
+    }
   }
 
   function onFileSelected(file: File | undefined) {
-    setFileInfo(null);
-    setResult(null);
-    setError(null);
-    if (!file) return;
+    if (!file) {
+      clearFile();
+      return;
+    }
     const name = file.name.toLowerCase();
     const isCsv = name.endsWith(".csv");
     const isJson = name.endsWith(".json");
     const isXlsx = name.endsWith(".xlsx");
     if (!isCsv && !isJson && !isXlsx) {
       setError("Please choose a .csv, .json, or .xlsx vocabulary file.");
+      setSelected(null);
+      setResult(null);
       return;
     }
+    const afterRead = (text: string, format: "json" | "csv" | "xlsx") => {
+      if (!text.trim()) {
+        setError("The file is empty.");
+        setSelected(null);
+        setResult(null);
+        return;
+      }
+      const next = { file, text, format };
+      setSelected(next);
+      void runImport(next, true);
+    };
     if (isXlsx) {
       void file.arrayBuffer().then((buf) => {
         const bytes = new Uint8Array(buf);
@@ -246,21 +333,11 @@ export default function ImportExportPage() {
         bytes.forEach((b) => {
           binary += String.fromCharCode(b);
         });
-        const content = btoa(binary);
-        const run = dryRun ? applyPreview : applyImport;
-        run(file, content, "xlsx");
+        afterRead(btoa(binary), "xlsx");
       });
       return;
     }
-    void file.text().then((text) => {
-      if (!text.trim()) {
-        setError("The file is empty.");
-        return;
-      }
-      const format = isJson ? "json" : "csv";
-      if (dryRun) applyPreview(file, text, format);
-      else applyImport(file, text, format);
-    });
+    void file.text().then((text) => afterRead(text, isJson ? "json" : "csv"));
   }
 
   return (
@@ -295,23 +372,54 @@ export default function ImportExportPage() {
         </h2>
         <Card>
           <CardHeader>
-            <CardTitle>Upload a CSV or JSON file</CardTitle>
+            <CardTitle>Upload a CSV, JSON, or Excel file</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Expected columns for CSV:{" "}
-              <Badge variant="secondary">lemma</Badge>,{" "}
-              <Badge variant="secondary">partOfSpeech</Badge>,{" "}
-              <Badge variant="secondary">definition</Badge>, plus optional{" "}
-              <Badge variant="secondary">translations</Badge> (;-separated
-              Polish), <Badge variant="secondary">examples</Badge>,{" "}
-              <Badge variant="secondary">cefrLevels</Badge>,{" "}
-              <Badge variant="secondary">tags</Badge>,{" "}
-              <Badge variant="secondary">senseIdHint</Badge>.
-              <br />
-              JSON should be an array of objects with the same fields. Existing
+              Download a sample, fill in your words, then upload. Existing
               senses are skipped, never overwritten. Max 5000 rows per import.
             </p>
+
+            <div className="overflow-x-auto rounded-xl border">
+              <table className="w-full table-fixed text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-left">
+                    <th className="w-[22%] px-3 py-2 font-medium">Column</th>
+                    <th className="w-[16%] px-3 py-2 font-medium">Needed</th>
+                    <th className="w-[62%] px-3 py-2 font-medium">What to put</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {IMPORT_COLUMNS.map((col) => (
+                    <tr key={col.name} className="border-b last:border-0">
+                      <td className="px-3 py-2 align-top font-mono text-xs wrap-break-word">{col.name}</td>
+                      <td className="px-3 py-2 align-top">
+                        {col.required ? (
+                          <Badge>Required</Badge>
+                        ) : (
+                          <Badge variant="secondary">Optional</Badge>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top leading-relaxed text-muted-foreground wrap-break-word">{col.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={downloadSampleCsv}>
+                <Download className="size-4" />
+                Sample CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadSampleJson}>
+                <Download className="size-4" />
+                Sample JSON
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Excel uses the same column names on the first sheet.
+              </span>
+            </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <input
@@ -324,33 +432,45 @@ export default function ImportExportPage() {
               <Button
                 variant="outline"
                 onClick={() => fileRef.current?.click()}
-                disabled={busy}
+                disabled={busy !== null}
               >
-                Choose file…
+                {selected ? "Change file…" : "Choose file…"}
               </Button>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={dryRun}
-                  onChange={(e) => setDryRun(e.target.checked)}
-                />
-                Preview first (dry run only)
-              </label>
+              {selected ? (
+                <div className="flex min-w-0 items-center gap-2 rounded-full border bg-muted/40 px-3 py-1.5 text-sm">
+                  <FileText className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">
+                    {selected.file.name}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      ({selected.file.size.toLocaleString()} bytes)
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                    aria-label="Remove file"
+                    onClick={clearFile}
+                    disabled={busy !== null}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  No file selected
+                </span>
+              )}
             </div>
 
             {busy ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" /> Importing…
+                <Loader2 className="size-4 animate-spin" />
+                {busy === "preview" ? "Checking the file…" : "Importing…"}
               </div>
             ) : error ? (
               <p className="flex items-center gap-2 text-sm text-destructive">
                 <AlertCircle className="size-4" />
                 {error}
-              </p>
-            ) : fileInfo ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="size-4 text-emerald-500" />
-                {fileInfo}
               </p>
             ) : null}
 
@@ -389,7 +509,32 @@ export default function ImportExportPage() {
                   </div>
                 )}
 
-                {!result.dryRun && (
+                {result.dryRun ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={
+                        busy !== null ||
+                        !selected ||
+                        result.validated === 0
+                      }
+                      onClick={() => {
+                        if (selected) void runImport(selected, false);
+                      }}
+                    >
+                      {busy === "import" ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <CloudUpload className="size-4" />
+                      )}
+                      Import {result.validated} valid row
+                      {result.validated === 1 ? "" : "s"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Preview only so far. Nothing has been written yet.
+                    </p>
+                  </div>
+                ) : (
                   <p
                     className={
                       result.created > 0
@@ -399,7 +544,7 @@ export default function ImportExportPage() {
                   >
                     <CheckCircle2 className="size-4" />
                     {result.created === 0
-                      ? "Nothing new to import - all rows already exist."
+                      ? "Nothing new to import — all rows already exist."
                       : `Import complete: ${result.created} sense(s) added with a "teacher-import" tag.`}
                   </p>
                 )}

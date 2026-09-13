@@ -88,6 +88,5 @@ export declare class ActivitiesService {
     private resolveFromSet;
     private resolveFromStudentPool;
     private loadLatestSessions;
-    private loadCompletedCounts;
     private toLatestSessionDto;
 }

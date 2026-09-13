@@ -37,20 +37,24 @@ function StatCard({
   title,
   value,
   hint,
+  tone,
 }: {
   icon: typeof Users;
   title: string;
   value: string | number;
   hint?: string;
+  tone: string;
 }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="size-4 text-muted-foreground" />
+        <span className={cn("rounded-lg p-1.5", tone)}>
+          <Icon className="size-4" />
+        </span>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold tabular-nums">{value}</div>
         {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>
@@ -127,8 +131,8 @@ export default function TeacherDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="app-page-title">Dashboard</h1>
+        <p className="app-page-lead">
           Live summary of your students, assignments and activities.
         </p>
       </div>
@@ -162,6 +166,7 @@ export default function TeacherDashboardPage() {
               title="Students"
               value={data.students.total}
               hint={`${data.students.active} active`}
+              tone="bg-sky-100 text-sky-700"
             />
             <StatCard
               icon={ClipboardList}
@@ -172,18 +177,21 @@ export default function TeacherDashboardPage() {
                   ? `${data.assignments.active} active · ${data.assignments.overdue} overdue`
                   : `${data.assignments.active} active`
               }
+              tone="bg-amber-100 text-amber-700"
             />
             <StatCard
               icon={Activity}
               title="Activities"
               value={data.activities.total}
               hint={`${data.activities.active} active`}
+              tone="bg-violet-100 text-violet-700"
             />
             <StatCard
               icon={BookOpen}
               title="Vocabulary senses"
               value={data.vocabulary.catalogSenses.toLocaleString()}
               hint="Sense-level rows in the catalog"
+              tone="bg-emerald-100 text-emerald-700"
             />
           </div>
 

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -246,17 +247,13 @@ export default function AssignmentDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Lemma</TableHead>
-                  <TableHead className="hidden md:table-cell">Source</TableHead>
-                  <TableHead className="hidden md:table-cell">CEFR</TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    Definition
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">Polish</TableHead>
-                  <TableHead>Learning</TableHead>
-                  <TableHead className="hidden text-right lg:table-cell">
-                    Reviews
-                  </TableHead>
+                  <TableHead className="w-[16%]">Lemma</TableHead>
+                  <TableHead className="w-[12%]">Source</TableHead>
+                  <TableHead className="w-[8%]">CEFR</TableHead>
+                  <TableHead className="w-[30%]">Definition</TableHead>
+                  <TableHead className="w-[16%]">Polish</TableHead>
+                  <TableHead className="w-[12%]">Learning</TableHead>
+                  <TableHead className="w-[6%] text-right">Reviews</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -273,7 +270,7 @@ export default function AssignmentDetailPage() {
                         {item.partOfSpeech}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       {item.source.type === "VOCABULARY_SET" ? (
                         <Badge variant="outline">
                           From set
@@ -285,22 +282,18 @@ export default function AssignmentDetailPage() {
                         <Badge variant="secondary">Manual</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       {item.cefrLevels.length > 0
                         ? item.cefrLevels.join(", ")
                         : "—"}
                     </TableCell>
-                    <TableCell className="hidden max-w-md lg:table-cell">
-                      <span className="text-xs text-muted-foreground">
-                        {item.definition}
-                      </span>
+                    <TableCell className="text-sm leading-relaxed text-muted-foreground">
+                      {item.definition}
                     </TableCell>
-                    <TableCell className="hidden max-w-56 lg:table-cell">
-                      <span className="text-xs">
-                        {item.translations.map((t) => t.text).join(", ") || "—"}
-                      </span>
+                    <TableCell className="text-sm leading-relaxed">
+                      {item.translations.map((t) => t.text).join(", ") || "—"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {item.learning ? (
                         <LearningStatusBadge status={item.learning} />
                       ) : (
@@ -309,7 +302,7 @@ export default function AssignmentDetailPage() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="hidden text-right lg:table-cell text-sm tabular-nums">
+                    <TableCell className="text-right text-sm tabular-nums">
                       {item.reviewCount}
                     </TableCell>
                   </TableRow>
@@ -407,7 +400,7 @@ function EditAssignmentDialog({
             Update the details of this assignment. Learning state is untouched.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-title">Title</Label>
             <Input
@@ -434,7 +427,7 @@ function EditAssignmentDialog({
               onChange={(e) => setDueAt(e.target.value)}
             />
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
           <Button
             onClick={() => mutation.mutate()}

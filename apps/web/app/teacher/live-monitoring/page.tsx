@@ -73,6 +73,7 @@ function LiveBoard() {
   const snapshotQuery = useQuery({
     queryKey: ["live-snapshot"],
     queryFn: () => api.realtimeLive(),
+    refetchInterval: 8_000,
   });
 
   // HTTP snapshot merged with incremental socket presence. DB stays the source
@@ -109,7 +110,7 @@ function LiveBoard() {
   // reconnect, presence join).
   useEffect(() => {
     for (const s of students) {
-      if (s.online) ensureWatched(s.studentId);
+      ensureWatched(s.studentId);
     }
   }, [students]);
 
@@ -155,7 +156,7 @@ function LiveBoard() {
         socket.on("connect", () => {
           setConnection("connected");
           for (const s of studentsRef.current) {
-            if (s.online) ensureWatched(s.studentId);
+            ensureWatched(s.studentId);
           }
         });
         socket.on("disconnect", () => {

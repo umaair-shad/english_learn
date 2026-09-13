@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { pageMeta } from '../common/utils/page-meta';
 import { PrismaService } from '../database/prisma.service';
 import {
   CreateVocabularySetDto,
@@ -135,12 +136,7 @@ export class VocabularySetsService {
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
       })),
-      meta: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
-      },
+      meta: pageMeta(query.page, query.limit, total),
     };
   }
 

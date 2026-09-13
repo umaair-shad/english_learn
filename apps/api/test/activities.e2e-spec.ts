@@ -588,7 +588,7 @@ describe('Activities (e2e, real PostgreSQL)', () => {
     expect(teacherSession.body.completedCount).toBe(1);
   });
 
-  it('memory: MATCH_FOUND resolves a pair, MATCH_FAILED stays gameplay-only', async () => {
+  it('memory: MATCH_FAILED scores last-answer-wins; MATCH_FOUND + answer keeps FSRS once', async () => {
     const studentId = await createStudent(`${PREFIX}MemoryFlow`);
     const token = await tokenFor(studentId);
     const id = await createActivity({
@@ -599,7 +599,8 @@ describe('Activities (e2e, real PostgreSQL)', () => {
     });
     const sessionId = await startActivity(token, id);
 
-    // A failed match is recorded but never touches counters or FSRS.
+    // MATCH_FAILED is graded for session progress (last-answer-wins) but
+    // never writes an FSRS review.
     const miss = await agent
       .post(
         `/api/v1/student-access/${token}/activity-sessions/${sessionId}/events`,
@@ -611,12 +612,13 @@ describe('Activities (e2e, real PostgreSQL)', () => {
       })
       .expect(201);
     expect(miss.body.correctCount).toBe(0);
-    expect(miss.body.incorrectCount).toBe(0);
-    expect(miss.body.completedCount).toBe(0);
+    expect(miss.body.incorrectCount).toBe(1);
+    expect(miss.body.completedCount).toBe(1);
     expect(await historyCount(studentId, SENSE_FINANCIAL, id)).toBe(0);
 
     // A resolved pair: MATCH_FOUND records the gameplay event and the
     // companion answer event drives the standard FSRS bridge exactly once.
+    // Last-answer-wins then counts the sense as correct.
     await agent
       .post(
         `/api/v1/student-access/${token}/activity-sessions/${sessionId}/events`,
@@ -633,6 +635,8 @@ describe('Activities (e2e, real PostgreSQL)', () => {
         rating: 'GOOD',
       })
       .expect(201);
+    expect(resolved.body.correctCount).toBe(1);
+    expect(resolved.body.incorrectCount).toBe(0);
     expect(resolved.body.completedCount).toBe(1);
     expect(resolved.body.percentComplete).toBe(50);
     expect(await historyCount(studentId, SENSE_FINANCIAL, id)).toBe(1);

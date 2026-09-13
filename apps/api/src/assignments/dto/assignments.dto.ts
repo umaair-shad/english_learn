@@ -87,7 +87,7 @@ export class AssignmentQueryDto {
   @IsInt()
   @Min(1)
   @Max(200)
-  limit = 20;
+  limit = 10;
 }
 
 export class UpdateAssignmentDto {

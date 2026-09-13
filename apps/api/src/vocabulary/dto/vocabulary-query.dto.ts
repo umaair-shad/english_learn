@@ -33,7 +33,7 @@ export class ListVocabularyDto {
   @IsInt()
   @Min(1)
   @Max(200)
-  limit = 20;
+  limit = 10;
 
   @IsOptional()
   @IsString()
@@ -68,6 +68,12 @@ export class ListVocabularyDto {
   @Max(30000)
   frequencyRank?: number;
 
+  /** Hide numeric / symbol / leetspeak lemmas (0, 86, 2S, …). */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === '1' || value === true)
+  @IsBoolean()
+  lexicalOnly?: boolean;
+
   @IsOptional()
   @IsIn(VOCABULARY_SORTS)
   sort: VocabularySort = 'lemma';
@@ -93,5 +99,5 @@ export class SearchVocabularyDto {
   @IsInt()
   @Min(1)
   @Max(200)
-  limit = 20;
+  limit = 10;
 }

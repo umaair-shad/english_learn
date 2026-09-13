@@ -6,10 +6,6 @@ export declare class ActivitySessionsController {
     getSession(id: number): Promise<import("./activity-sessions.service").ActivitySessionDto>;
     events(id: number, query: SessionEventListQueryDto): Promise<{
         data: import("./activity-sessions.service").SessionEventListItemDto[];
-        meta: {
-            page: number;
-            limit: number;
-            total: number;
-        };
+        meta: ReturnType<typeof import("../common/utils/page-meta").pageMeta>;
     }>;
 }

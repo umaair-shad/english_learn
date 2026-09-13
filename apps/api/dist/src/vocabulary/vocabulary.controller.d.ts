@@ -12,5 +12,9 @@ export declare class VocabularyController {
         parentId: number | null;
     }[]>;
     search(query: SearchVocabularyDto): Promise<PaginatedList>;
+    listIds(query: ListVocabularyDto): Promise<{
+        senseIds: number[];
+        total: number;
+    }>;
     detail(id: number): Promise<VocabularyDetailEntry>;
 }

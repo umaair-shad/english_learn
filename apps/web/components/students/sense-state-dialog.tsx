@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -75,30 +76,36 @@ export function SenseStateDialog({
         if (!open) onOpenChange(false);
       }}
     >
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="h-[96dvh] sm:h-[min(92dvh,72rem)]">
         {isLoading || (!data && senseId !== null) ? (
+          <>
           <DialogHeader>
             <DialogTitle>Sense #{senseId}</DialogTitle>
             <DialogDescription>Loading learning state…</DialogDescription>
-            <div className="space-y-3 pt-2">
+          </DialogHeader>
+          <DialogBody className="space-y-3">
               {[0, 1, 2].map((i) => (
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
-            </div>
-          </DialogHeader>
+          </DialogBody>
+          </>
         ) : isError || !data ? (
+          <>
           <DialogHeader>
             <DialogTitle>Sense #{senseId}</DialogTitle>
             <DialogDescription className="flex items-center gap-2">
               <AlertCircle className="size-4" />
               Could not load this sense.
             </DialogDescription>
-            <Button variant="outline" size="sm" className="mt-3 w-fit" onClick={() => void refetch()}>
+          </DialogHeader>
+          <DialogBody>
+            <Button variant="outline" size="sm" className="w-fit" onClick={() => void refetch()}>
               Retry
             </Button>
-          </DialogHeader>
+          </DialogBody>
+          </>
         ) : (
-          <div className="space-y-5">
+          <>
             <DialogHeader>
               <DialogTitle className="text-xl">
                 {data.sense.lemma}
@@ -117,6 +124,7 @@ export function SenseStateDialog({
               </DialogDescription>
             </DialogHeader>
 
+            <DialogBody className="space-y-5">
             {state ? (
               <div className="rounded-lg border p-4">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -216,7 +224,8 @@ export function SenseStateDialog({
                 </div>
               )}
             </div>
-          </div>
+            </DialogBody>
+          </>
         )}
       </DialogContent>
     </Dialog>
