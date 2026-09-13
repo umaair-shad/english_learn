@@ -1,0 +1,13 @@
+{
+  "takenAt": "2026-09-13T12:34:00Z",
+  "total_categories": 1420,
+  "top_level": 50,
+  "generated_categories": 1230,
+  "meaningful_categories": 190,
+  "total_assignments": 45863,
+  "assignments_on_generated": 10292,
+  "files": {
+    "categories": "categories.csv",
+    "generatedAssignments": "generated-assignments.csv"
+  }
+}

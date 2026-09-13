@@ -1,6 +1,6 @@
 # Project progress
 
-Last updated: **2026-09-13** (e2e green: 118/118)  
+Last updated: **2026-09-13** (client status doc; e2e 118/118)  
 Repo: `e:\fiver\project_english`  
 Client spec: `e:\fiver\Project English Learn\r.txt`
 
@@ -77,7 +77,7 @@ Working systems. Extend them; do not rewrite.
 - Taxonomy seed still exists (`npm run seed:taxonomy`) and search can match category names, but the client rejected a fixed ~1,000-category browser
 - Current DB catalog: ~**16,760 entries / 60,657 senses** (20k sample). Keep `data/archive/baseline-20k`
 - Backup script: `pwsh -File scripts/backup-postgres.ps1` (or `npm run backup` in `apps/api`)
-- Docs: `README.md`, `docs/architecture.md`, `docs/deployment-production.md`, `docs/operations.md`
+- Docs: `docs/client-status.md` (send to client), `README.md`, `docs/architecture.md`, `docs/deployment-production.md`, `docs/operations.md`
 - Cookie: set `COOKIE_SECURE=true` only behind HTTPS
 
 ### Client decisions (Fiverr, 2026-09-12)
@@ -114,16 +114,15 @@ UI refresh 2026-09-13: teal/cream theme (not grayscale), mobile teacher drawer, 
    - Script exists; Windows Task Scheduler (or cron) is not set up
    - Restore was documented, not re-tested in a scratch DB this session
 
-4. **Client handoff pack**
-   - Production `pg_dump` of the current DB
-   - Env examples already in `apps/api/.env.example` and `apps/web/.env.example`
-   - Confirm teacher seed credentials with the client (do not commit real passwords)
+4. **Client confirmation**
+   - Send `docs/client-status.md`
+   - Wait for Yes/No on full DB load, real topics, leftover categories, deploy
 
 ### Optional / only if the client asks
 
 5. **Full vocabulary load** — client said they want the full database. Still not run. Would change golden sense IDs (`bank` noun = `4593`). Confirm again before starting. Do not run raw Wiktextract (23 GB).
 
-6. **Taxonomy names** — seed still helps on-the-fly search, but is no longer the product category browser.
+6. **Topics / leftover categories** — wait for client answers in `docs/client-status.md`. Do not seed a hand-made tree.
 
 7. **Dashboard vs student list** — reports dashboard counts only students “owned” via activities/assignments (`created_by_teacher_id` / `teacher_id`). The students list is single-tenant (all students). Can look like “0 students” on the dashboard while the list shows people.
 
@@ -162,6 +161,7 @@ UI refresh 2026-09-13: teal/cream theme (not grayscale), mobile teacher drawer, 
 | SQL migrations | `database/migrations/` (incl. `006_activity_access_tokens.sql`) |
 | Taxonomy seed | `apps/api/src/scripts/seed-taxonomy.ts` |
 | Backup | `scripts/backup-postgres.ps1` |
+| Client status | `docs/client-status.md` |
 | Architecture | `docs/architecture.md` |
 | Deploy | `docs/deployment-production.md` |
 | Ops / restore | `docs/operations.md` |
@@ -173,5 +173,5 @@ UI refresh 2026-09-13: teal/cream theme (not grayscale), mobile teacher drawer, 
 
 1. Read this file.
 2. Confirm Docker Postgres is healthy and API/web start.
-3. Pick the next remaining item (usually: production deploy, then scheduled backup). Pagination / find-words / collections / e2e 118/118 are in. Confirm before loading the full 1.7M catalog.
+3. If the client has not answered `docs/client-status.md`, do not load the full catalog and do not build a hand-made taxonomy. Otherwise pick deploy or the confirmed data step.
 4. Update **Last updated**, move finished items into **Done**, and keep **Remaining** honest.

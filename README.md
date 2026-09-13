@@ -10,7 +10,8 @@ Production web platform for teaching English to Polish-speaking students.
 
 Local run: `docker compose up -d`, then `npm run start:dev` in `apps/api` and `npm run dev` in `apps/web`.
 
-See `docs/architecture.md`, `docs/deployment-production.md`, and `docs/operations.md`.
+Client status (send this): `docs/client-status.md`.  
+Technical: `docs/architecture.md`, `docs/deployment-production.md`, `docs/operations.md`.
 
 ---
 
@@ -50,7 +51,7 @@ scripts/vocabulary/src/vocabulary_pipeline/
     database/              # schema.py (authoritative DDL), bulk_load.py, postgres.py
     exports/               # CSV/JSONL/Excel exporters
 database/migrations/       # SQL mirror of database/schema.py
-docs/                      # data audit, sources, reconciliation guides
+docs/                      # client-status, architecture, deploy, operations
 data/                      # raw|staging|processed|rejected|reports|exports (gitignored)
 docker-compose.yml         # PostgreSQL 16 for local dev
 .env.example               # all knobs with safe defaults

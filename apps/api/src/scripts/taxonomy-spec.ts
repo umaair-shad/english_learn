@@ -1,0 +1,1585 @@
+/**
+ * Approved production taxonomy and deterministic assignment rules.
+ * Source of truth: docs/taxonomy-proposal.md
+ */
+
+export type TaxNode = {
+  code: string;
+  name: string;
+  children?: TaxNode[];
+};
+
+export const KEEP_GENERATED_ROOTS = [
+  'SCIENCE',
+  'MATH',
+  'HISTORY',
+  'MEDIA',
+  'HOBBIES',
+  'HOLIDAYS',
+  'SAFETY',
+  'RELIGION',
+  'PHILOSOPHY',
+  'PSYCHOLOGY',
+  'POLITICS',
+  'WAR',
+  'CHARITY',
+  'TOOLS',
+] as const;
+
+export const MERGE_AWAY_ROOTS = [
+  'WEATHER2',
+  'LAW2',
+  'MEDICINE2',
+  'VOLUNTEER',
+  'SEA',
+  'NUMBERS',
+  'MEASURE',
+  'DIRECTION',
+  'CITYLIFE',
+  'COUNTRY',
+  'FARM',
+  'SPACE',
+  'PEACE',
+  'MATERIALS',
+  'COLORS',
+  'SHAPES',
+] as const;
+
+export const ALL_GENERATED_ROOTS = [
+  ...KEEP_GENERATED_ROOTS,
+  ...MERGE_AWAY_ROOTS,
+] as const;
+
+const GENERATED_ROOT_ALT = ALL_GENERATED_ROOTS.join('|');
+
+export const GENERATED_CHILD_RE = new RegExp(
+  `^(${GENERATED_ROOT_ALT})_(BASICS|PEOPLE|PLACES|ACTIONS|THINGS|PROBLEMS|SKILLS|EVENTS)(_[1-4])?$`,
+);
+
+export const PLACEHOLDER_NAME_RE =
+  /^(basics|people|places|actions|things|problems|skills|events) [1-4]$/i;
+
+export const DUMMY_KEYWORD_RE = new RegExp(
+  `\\b(${ALL_GENERATED_ROOTS.join('|').toLowerCase()})\\d{2}\\b`,
+  'i',
+);
+
+export const HANDWRITTEN_CODES = [
+  'ANIM',
+  'ANIM_FISH',
+  'ANIM_FISH_SEA',
+  'ANIM_PET',
+  'ANIM_PET_CAT',
+  'ANIM_PET_DOG',
+  'ANIM_WILD',
+  'ANIM_WILD_BIRD',
+  'ANIM_WILD_MAM',
+  'ART',
+  'ART_BOOK',
+  'ART_BOOK_READ',
+  'ART_FILM',
+  'ART_FILM_MOV',
+  'ART_MUS',
+  'ART_MUS_SONG',
+  'CLOTH',
+  'CLOTH_SHOE',
+  'CLOTH_SHOE_FT',
+  'CLOTH_WEAR',
+  'CLOTH_WEAR_BOT',
+  'CLOTH_WEAR_TOP',
+  'COMM',
+  'COMM_TALK',
+  'COMM_TALK_SAY',
+  'COMM_WRITE',
+  'COMM_WRITE_LET',
+  'EDU',
+  'EDU_LANG',
+  'EDU_LANG_VOC',
+  'EDU_SCH',
+  'EDU_SCH_EXAM',
+  'EDU_SCH_SUBJ',
+  'EDU_UNI',
+  'EDU_UNI_CAMP',
+  'EDU_UNI_DEG',
+  'ENV',
+  'ENV_NAT',
+  'ENV_NAT_CLI',
+  'ENV_NAT_TREE',
+  'FEEL',
+  'FEEL_EMO',
+  'FEEL_EMO_HAP',
+  'FEEL_EMO_SAD',
+  'FOOD',
+  'FOOD_COOK',
+  'FOOD_COOK_BOIL',
+  'FOOD_COOK_FRY',
+  'FOOD_DRINK',
+  'FOOD_DRINK_ALC',
+  'FOOD_DRINK_HOT',
+  'FOOD_ING',
+  'FOOD_ING_FRUIT',
+  'FOOD_ING_MEAT',
+  'FOOD_ING_VEG',
+  'FOOD_MEAL',
+  'FOOD_MEAL_BF',
+  'FOOD_MEAL_DN',
+  'FOOD_MEAL_LN',
+  'FOOD_REST',
+  'FOOD_REST_MENU',
+  'FOOD_REST_ORDER',
+  'GEO',
+  'GEO_CITY',
+  'GEO_CITY_MAP',
+  'GEO_CITY_STREET',
+  'GEO_LAND',
+  'GEO_LAND_MT',
+  'GEO_LAND_RIV',
+  'GEO_WEATH',
+  'GEO_WEATH_RAIN',
+  'GEO_WEATH_SUN',
+  'HEALTH',
+  'HEALTH_BODY',
+  'HEALTH_BODY_HEAD',
+  'HEALTH_BODY_LIMB',
+  'HEALTH_CARE',
+  'HEALTH_CARE_HOSP',
+  'HEALTH_CARE_MED',
+  'HEALTH_ILL',
+  'HEALTH_ILL_COLD',
+  'HEALTH_ILL_PAIN',
+  'HOME',
+  'HOME_APP',
+  'HOME_APP_FRID',
+  'HOME_APP_VAC',
+  'HOME_APP_WASH',
+  'HOME_BUILD',
+  'HOME_BUILD_BRICK',
+  'HOME_BUILD_WOOD',
+  'HOME_FURN',
+  'HOME_FURN_CAB',
+  'HOME_FURN_CHA',
+  'HOME_FURN_TAB',
+  'HOME_GARD',
+  'HOME_GARD_PLANT',
+  'HOME_GARD_TOOL',
+  'HOME_MAIN',
+  'HOME_MAIN_PAINT',
+  'HOME_MAIN_REPAIR',
+  'HOME_PROP',
+  'HOME_PROP_FLAT',
+  'HOME_PROP_HOUSE',
+  'HOME_RENT',
+  'HOME_RENT_LEASE',
+  'HOME_ROOMS',
+  'HOME_ROOMS_BATH',
+  'HOME_ROOMS_BED',
+  'HOME_ROOMS_KIT',
+  'HOME_ROOMS_LIV',
+  'HOME_UTIL',
+  'HOME_UTIL_ELEC',
+  'HOME_UTIL_GAS',
+  'HOME_UTIL_WAT',
+  'LAW',
+  'LAW_CRIME',
+  'LAW_CRIME_THEFT',
+  'LAW_GOV',
+  'LAW_GOV_VOTE',
+  'MONEY',
+  'MONEY_BANK',
+  'MONEY_BANK_ACC',
+  'MONEY_BANK_CARD',
+  'MONEY_PAY',
+  'MONEY_PAY_CASH',
+  'MONEY_PAY_ONL',
+  'MONEY_SHOP',
+  'MONEY_SHOP_PRICE',
+  'PEOPLE',
+  'PEOPLE_FAM',
+  'PEOPLE_FAM_PAR',
+  'PEOPLE_FAM_SIB',
+  'PEOPLE_SOC',
+  'PEOPLE_SOC_DATE',
+  'PEOPLE_SOC_FRI',
+  'SPORT',
+  'SPORT_IND',
+  'SPORT_IND_RUN',
+  'SPORT_IND_SWIM',
+  'SPORT_TEAM',
+  'SPORT_TEAM_BB',
+  'SPORT_TEAM_FB',
+  'TECH',
+  'TECH_COMP',
+  'TECH_COMP_NET',
+  'TECH_COMP_PC',
+  'TECH_PHONE',
+  'TECH_PHONE_MOB',
+  'TIME',
+  'TIME_CLK',
+  'TIME_CLK_HOUR',
+  'TIME_DAY',
+  'TIME_DAY_WK',
+  'TRANS',
+  'TRANS_CAR',
+  'TRANS_CAR_DRIVE',
+  'TRANS_ROAD',
+  'TRANS_ROAD_HWY',
+  'TRAVEL',
+  'TRAVEL_AIR',
+  'TRAVEL_AIR_SEC',
+  'TRAVEL_AIR_TERM',
+  'TRAVEL_DOCS',
+  'TRAVEL_DOCS_VISA',
+  'TRAVEL_FLY',
+  'TRAVEL_FLY_BOARD',
+  'TRAVEL_FLY_DELAY',
+  'TRAVEL_HOTEL',
+  'TRAVEL_HOTEL_BOOK',
+  'TRAVEL_HOTEL_ROOM',
+  'TRAVEL_PROB',
+  'TRAVEL_PROB_LOST',
+  'TRAVEL_PROB_MISS',
+  'TRAVEL_PUB',
+  'TRAVEL_PUB_BUS',
+  'TRAVEL_PUB_METRO',
+  'TRAVEL_PUB_TRAIN',
+  'TRAVEL_TOUR',
+  'TRAVEL_TOUR_GUIDE',
+  'TRAVEL_TOUR_SIGHT',
+  'WORK',
+  'WORK_BIZ',
+  'WORK_BIZ_DEAL',
+  'WORK_BIZ_FIN',
+  'WORK_JOB',
+  'WORK_JOB_HUNT',
+  'WORK_JOB_TITLE',
+  'WORK_OFF',
+  'WORK_OFF_MAIL',
+  'WORK_OFF_MEET',
+] as const;
+
+export function isGeneratedCategory(code: string): boolean {
+  if ((MERGE_AWAY_ROOTS as readonly string[]).includes(code)) return true;
+  return GENERATED_CHILD_RE.test(code);
+}
+
+export function isPlaceholderName(name: string): boolean {
+  return PLACEHOLDER_NAME_RE.test(name.trim());
+}
+
+export function n(
+  code: string,
+  name: string,
+  children?: TaxNode[],
+): TaxNode {
+  return children ? { code, name, children } : { code, name };
+}
+
+export const APPROVED_TREE: TaxNode[] = [
+  n('HOME', 'Home & Housing', [
+    n('HOME_ROOMS', 'Rooms', [
+      n('HOME_ROOMS_BED', 'Bedroom'),
+      n('HOME_ROOMS_KIT', 'Kitchen'),
+      n('HOME_ROOMS_BATH', 'Bathroom'),
+      n('HOME_ROOMS_LIV', 'Living room'),
+      n('HOME_ROOMS_DIN', 'Dining room'),
+      n('HOME_ROOMS_HALL', 'Hallway'),
+      n('HOME_ROOMS_BAL', 'Balcony'),
+      n('HOME_ROOMS_GAR', 'Garage'),
+    ]),
+    n('HOME_FURN', 'Furniture', [
+      n('HOME_FURN_TAB', 'Tables'),
+      n('HOME_FURN_CHA', 'Chairs'),
+      n('HOME_FURN_CAB', 'Cabinets'),
+      n('HOME_FURN_BED', 'Beds'),
+      n('HOME_FURN_SOFA', 'Sofas'),
+      n('HOME_FURN_LIGHT', 'Lighting'),
+    ]),
+    n('HOME_APP', 'Appliances', [
+      n('HOME_APP_WASH', 'Washing'),
+      n('HOME_APP_FRID', 'Fridge'),
+      n('HOME_APP_VAC', 'Cleaning machines'),
+      n('HOME_APP_COOK', 'Cookers'),
+      n('HOME_APP_HEAT', 'Heaters'),
+    ]),
+    n('HOME_MAIN', 'Maintenance', [
+      n('HOME_MAIN_REPAIR', 'Repairs'),
+      n('HOME_MAIN_PAINT', 'Painting'),
+      n('HOME_MAIN_PLUMB', 'Plumbing'),
+      n('HOME_MAIN_DECO', 'Decorating'),
+    ]),
+    n('HOME_BUILD', 'Building materials', [
+      n('HOME_BUILD_WOOD', 'Wood'),
+      n('HOME_BUILD_BRICK', 'Brick'),
+      n('HOME_BUILD_GLASS', 'Glass'),
+      n('HOME_BUILD_INS', 'Insulation'),
+    ]),
+    n('HOME_RENT', 'Renting', [
+      n('HOME_RENT_LEASE', 'Lease'),
+      n('HOME_RENT_LORD', 'Landlords & tenants'),
+      n('HOME_RENT_DEP', 'Deposits'),
+    ]),
+    n('HOME_PROP', 'Property', [
+      n('HOME_PROP_HOUSE', 'Houses'),
+      n('HOME_PROP_FLAT', 'Flats'),
+      n('HOME_PROP_MOVE', 'Moving house'),
+    ]),
+    n('HOME_UTIL', 'Utilities', [
+      n('HOME_UTIL_ELEC', 'Electricity'),
+      n('HOME_UTIL_WAT', 'Water'),
+      n('HOME_UTIL_GAS', 'Gas'),
+      n('HOME_UTIL_HEAT', 'Heating'),
+      n('HOME_UTIL_WASTE', 'Waste & recycling (home)'),
+    ]),
+    n('HOME_GARD', 'Gardening', [
+      n('HOME_GARD_PLANT', 'Plants'),
+      n('HOME_GARD_TOOL', 'Garden tools'),
+      n('HOME_GARD_OUT', 'Outdoor space'),
+    ]),
+    n('HOME_HOUSE', 'Housework', [
+      n('HOME_HOUSE_CLEAN', 'Cleaning'),
+      n('HOME_HOUSE_LAUN', 'Laundry'),
+      n('HOME_HOUSE_TIDY', 'Tidying'),
+    ]),
+  ]),
+  n('TRAVEL', 'Travel', [
+    n('TRAVEL_AIR', 'Airports', [
+      n('TRAVEL_AIR_TERM', 'Terminals'),
+      n('TRAVEL_AIR_SEC', 'Security'),
+      n('TRAVEL_AIR_CHECK', 'Check-in'),
+      n('TRAVEL_AIR_BAG', 'Baggage reclaim'),
+    ]),
+    n('TRAVEL_FLY', 'Flights', [
+      n('TRAVEL_FLY_BOARD', 'Boarding'),
+      n('TRAVEL_FLY_DELAY', 'Delays'),
+      n('TRAVEL_FLY_CABIN', 'Cabin & crew'),
+      n('TRAVEL_FLY_JET', 'Jet lag'),
+    ]),
+    n('TRAVEL_HOTEL', 'Hotels', [
+      n('TRAVEL_HOTEL_ROOM', 'Hotel rooms'),
+      n('TRAVEL_HOTEL_BOOK', 'Reservations'),
+    ]),
+    n('TRAVEL_ACC', 'Accommodation', [
+      n('TRAVEL_ACC_HOST', 'Hostels'),
+      n('TRAVEL_ACC_BB', 'Bed & breakfast'),
+      n('TRAVEL_ACC_CAMP', 'Campsites'),
+      n('TRAVEL_ACC_RENT', 'Holiday rentals'),
+    ]),
+    n('TRAVEL_TOUR', 'Tourism', [
+      n('TRAVEL_TOUR_SIGHT', 'Sightseeing'),
+      n('TRAVEL_TOUR_GUIDE', 'Guides'),
+      n('TRAVEL_TOUR_SOUV', 'Souvenirs'),
+      n('TRAVEL_TOUR_PACK', 'Package tours'),
+    ]),
+    n('TRAVEL_DOCS', 'Travel documents', [
+      n('TRAVEL_DOCS_VISA', 'Visas'),
+      n('TRAVEL_DOCS_PASS', 'Passports'),
+      n('TRAVEL_DOCS_INS', 'Travel insurance'),
+    ]),
+    n('TRAVEL_PROB', 'Travel problems', [
+      n('TRAVEL_PROB_LOST', 'Lost luggage'),
+      n('TRAVEL_PROB_MISS', 'Missed connections'),
+      n('TRAVEL_PROB_CANC', 'Cancellations'),
+      n('TRAVEL_PROB_WAY', 'Getting lost'),
+    ]),
+    n('TRAVEL_PUB', 'Public transportation', [
+      n('TRAVEL_PUB_BUS', 'Buses'),
+      n('TRAVEL_PUB_TRAIN', 'Trains'),
+      n('TRAVEL_PUB_METRO', 'Metro'),
+      n('TRAVEL_PUB_TICK', 'Tickets & passes'),
+      n('TRAVEL_PUB_TAXI', 'Taxis'),
+    ]),
+    n('TRAVEL_PACK', 'Packing', [
+      n('TRAVEL_PACK_LUG', 'Luggage'),
+      n('TRAVEL_PACK_ESS', 'Essentials'),
+    ]),
+  ]),
+  n('FOOD', 'Food & Drink', [
+    n('FOOD_MEAL', 'Meals', [
+      n('FOOD_MEAL_BF', 'Breakfast'),
+      n('FOOD_MEAL_LN', 'Lunch'),
+      n('FOOD_MEAL_DN', 'Dinner'),
+      n('FOOD_MEAL_SNACK', 'Snacks'),
+      n('FOOD_MEAL_HOME', 'Eating out at home'),
+    ]),
+    n('FOOD_ING', 'Ingredients', [
+      n('FOOD_ING_VEG', 'Vegetables'),
+      n('FOOD_ING_FRUIT', 'Fruit'),
+      n('FOOD_ING_MEAT', 'Meat'),
+      n('FOOD_ING_FISH', 'Fish & seafood'),
+      n('FOOD_ING_DAIRY', 'Dairy'),
+      n('FOOD_ING_GRAIN', 'Grains & bread'),
+      n('FOOD_ING_SPICE', 'Herbs & spices'),
+    ]),
+    n('FOOD_COOK', 'Cooking', [
+      n('FOOD_COOK_BOIL', 'Boiling'),
+      n('FOOD_COOK_FRY', 'Frying'),
+      n('FOOD_COOK_BAKE', 'Baking'),
+      n('FOOD_COOK_GRILL', 'Grilling'),
+      n('FOOD_COOK_STEAM', 'Steaming'),
+      n('FOOD_COOK_REC', 'Recipes'),
+    ]),
+    n('FOOD_REST', 'Restaurants', [
+      n('FOOD_REST_MENU', 'Menus'),
+      n('FOOD_REST_ORDER', 'Ordering'),
+      n('FOOD_REST_SERV', 'Service'),
+      n('FOOD_REST_RES', 'Reservations (restaurant)'),
+    ]),
+    n('FOOD_DRINK', 'Drinks', [
+      n('FOOD_DRINK_HOT', 'Hot drinks'),
+      n('FOOD_DRINK_ALC', 'Alcohol'),
+      n('FOOD_DRINK_SOFT', 'Soft drinks'),
+      n('FOOD_DRINK_WAT', 'Water'),
+    ]),
+    n('FOOD_TASTE', 'Taste & diet', [
+      n('FOOD_TASTE_FLAV', 'Taste & flavour'),
+      n('FOOD_TASTE_VEG', 'Vegetarian & vegan'),
+      n('FOOD_TASTE_ALL', 'Allergies & intolerance'),
+    ]),
+  ]),
+  n('WORK', 'Work & Business', [
+    n('WORK_JOB', 'Jobs', [
+      n('WORK_JOB_TITLE', 'Job titles'),
+      n('WORK_JOB_HUNT', 'Job search'),
+      n('WORK_JOB_INT', 'Job interviews'),
+      n('WORK_JOB_PLACE', 'Workplaces'),
+    ]),
+    n('WORK_OFF', 'Office', [
+      n('WORK_OFF_MEET', 'Meetings'),
+      n('WORK_OFF_MAIL', 'Email'),
+      n('WORK_OFF_SCHED', 'Scheduling'),
+      n('WORK_OFF_EQ', 'Office equipment'),
+    ]),
+    n('WORK_BIZ', 'Business English', [
+      n('WORK_BIZ_DEAL', 'Deals'),
+      n('WORK_BIZ_FIN', 'Finance words'),
+      n('WORK_BIZ_CLI', 'Clients'),
+      n('WORK_BIZ_PRES', 'Presentations'),
+    ]),
+    n('WORK_EMP', 'Employment', [
+      n('WORK_EMP_CONT', 'Contracts & hours'),
+      n('WORK_EMP_PAY', 'Pay & benefits'),
+      n('WORK_EMP_RET', 'Resignation & retirement'),
+    ]),
+    n('WORK_PEOPLE', 'Workplace people', [
+      n('WORK_PEOPLE_COL', 'Colleagues'),
+      n('WORK_PEOPLE_MGR', 'Managers'),
+      n('WORK_PEOPLE_CUS', 'Customers'),
+    ]),
+  ]),
+  n('EDU', 'Education', [
+    n('EDU_SCH', 'School', [
+      n('EDU_SCH_SUBJ', 'Subjects'),
+      n('EDU_SCH_EXAM', 'Exams'),
+      n('EDU_SCH_CLASS', 'Classroom'),
+      n('EDU_SCH_HW', 'Homework'),
+      n('EDU_SCH_TEACH', 'Teachers & pupils'),
+    ]),
+    n('EDU_UNI', 'University', [
+      n('EDU_UNI_DEG', 'Degrees'),
+      n('EDU_UNI_CAMP', 'Campus'),
+      n('EDU_UNI_LEC', 'Lectures & seminars'),
+      n('EDU_UNI_RES', 'Research'),
+    ]),
+    n('EDU_LANG', 'Language learning', [
+      n('EDU_LANG_VOC', 'Vocabulary study'),
+      n('EDU_LANG_GRAM', 'Grammar'),
+      n('EDU_LANG_PRON', 'Pronunciation'),
+      n('EDU_LANG_SKILL', 'Skills practice'),
+    ]),
+    n('EDU_STUDY', 'Study skills', [
+      n('EDU_STUDY_NOTE', 'Notes & revision'),
+      n('EDU_STUDY_LIB', 'Libraries'),
+    ]),
+  ]),
+  n('HEALTH', 'Health', [
+    n('HEALTH_BODY', 'Body', [
+      n('HEALTH_BODY_HEAD', 'Head'),
+      n('HEALTH_BODY_LIMB', 'Limbs'),
+      n('HEALTH_BODY_TORSO', 'Torso'),
+      n('HEALTH_BODY_ORG', 'Organs'),
+      n('HEALTH_BODY_SKIN', 'Skin & hair'),
+    ]),
+    n('HEALTH_ILL', 'Illness', [
+      n('HEALTH_ILL_COLD', 'Colds'),
+      n('HEALTH_ILL_PAIN', 'Pain'),
+      n('HEALTH_ILL_RESP', 'Respiratory conditions'),
+      n('HEALTH_ILL_STOM', 'Stomach problems'),
+      n('HEALTH_ILL_INJ', 'Injuries'),
+      n('HEALTH_ILL_CHR', 'Chronic illness'),
+    ]),
+    n('HEALTH_CARE', 'Healthcare', [
+      n('HEALTH_CARE_HOSP', 'Hospital'),
+      n('HEALTH_CARE_MED', 'Medicine'),
+      n('HEALTH_CARE_DOC', 'Doctors & nurses'),
+      n('HEALTH_CARE_PHARM', 'Pharmacy'),
+      n('HEALTH_CARE_TEST', 'Tests & scans'),
+      n('HEALTH_CARE_SURG', 'Surgery'),
+    ]),
+    n('HEALTH_LIVE', 'Healthy living', [
+      n('HEALTH_LIVE_FIT', 'Exercise & fitness'),
+      n('HEALTH_LIVE_SLEEP', 'Sleep'),
+      n('HEALTH_LIVE_HYG', 'Hygiene'),
+      n('HEALTH_LIVE_MIND', 'Mental wellbeing (everyday)'),
+    ]),
+  ]),
+  n('MONEY', 'Money & Banking', [
+    n('MONEY_BANK', 'Banking', [
+      n('MONEY_BANK_ACC', 'Accounts'),
+      n('MONEY_BANK_CARD', 'Cards'),
+      n('MONEY_BANK_LOAN', 'Loans & interest'),
+      n('MONEY_BANK_SAVE', 'Savings'),
+    ]),
+    n('MONEY_PAY', 'Payments', [
+      n('MONEY_PAY_CASH', 'Cash'),
+      n('MONEY_PAY_ONL', 'Online pay'),
+      n('MONEY_PAY_BILL', 'Bills'),
+      n('MONEY_PAY_CUR', 'Currency'),
+    ]),
+    n('MONEY_SHOP', 'Shopping', [
+      n('MONEY_SHOP_PRICE', 'Prices'),
+      n('MONEY_SHOP_STORE', 'Shops'),
+      n('MONEY_SHOP_BARG', 'Bargains'),
+      n('MONEY_SHOP_RET', 'Returns'),
+    ]),
+    n('MONEY_PERS', 'Personal finance', [
+      n('MONEY_PERS_BUD', 'Budgeting'),
+      n('MONEY_PERS_DEBT', 'Debt'),
+      n('MONEY_PERS_INS', 'Insurance (money)'),
+    ]),
+  ]),
+  n('GEO', 'Geography', [
+    n('GEO_LAND', 'Landforms', [
+      n('GEO_LAND_RIV', 'Rivers'),
+      n('GEO_LAND_MT', 'Mountains'),
+      n('GEO_LAND_VAL', 'Valleys'),
+      n('GEO_LAND_DES', 'Deserts'),
+      n('GEO_LAND_ISL', 'Islands'),
+      n('GEO_LAND_FOR', 'Forests (physical)'),
+    ]),
+    n('GEO_WATER', 'Water & coasts', [
+      n('GEO_WATER_SEA', 'Seas & oceans'),
+      n('GEO_WATER_BEACH', 'Beaches'),
+      n('GEO_WATER_LAKE', 'Lakes'),
+      n('GEO_WATER_COAST', 'Coasts'),
+    ]),
+    n('GEO_CITY', 'Cities', [
+      n('GEO_CITY_STREET', 'Streets'),
+      n('GEO_CITY_MAP', 'Maps'),
+    ]),
+    n('GEO_DIR', 'Maps & direction', [
+      n('GEO_DIR_COMP', 'Compass points'),
+      n('GEO_DIR_DIST', 'Distance'),
+      n('GEO_DIR_NAV', 'Navigation'),
+    ]),
+    n('GEO_WEATH', 'Weather', [
+      n('GEO_WEATH_RAIN', 'Rain'),
+      n('GEO_WEATH_SUN', 'Sun'),
+      n('GEO_WEATH_WIND', 'Wind'),
+      n('GEO_WEATH_SNOW', 'Snow & ice'),
+      n('GEO_WEATH_STORM', 'Storms'),
+      n('GEO_WEATH_TEMP', 'Temperature'),
+    ]),
+    n('GEO_URBAN', 'Urban life', [
+      n('GEO_URBAN_NHOOD', 'Neighbourhoods'),
+      n('GEO_URBAN_CROWD', 'Crowds'),
+      n('GEO_URBAN_PUB', 'Public services'),
+    ]),
+    n('GEO_RURAL', 'Countryside', [
+      n('GEO_RURAL_VILL', 'Villages'),
+      n('GEO_RURAL_FIELD', 'Fields'),
+      n('GEO_RURAL_LIFE', 'Rural life'),
+    ]),
+    n('GEO_FARM', 'Farming', [
+      n('GEO_FARM_CROP', 'Crops'),
+      n('GEO_FARM_LIVE', 'Livestock'),
+      n('GEO_FARM_MACH', 'Farm machines'),
+    ]),
+    n('GEO_WORLD', 'Countries & continents', [
+      n('GEO_WORLD_CONT', 'Continents'),
+      n('GEO_WORLD_BORD', 'Borders'),
+      n('GEO_WORLD_CAP', 'Capitals'),
+    ]),
+  ]),
+  n('ANIM', 'Animals', [
+    n('ANIM_PET', 'Pets', [
+      n('ANIM_PET_DOG', 'Dogs'),
+      n('ANIM_PET_CAT', 'Cats'),
+      n('ANIM_PET_OTHER', 'Other pets'),
+    ]),
+    n('ANIM_WILD', 'Wild animals', [
+      n('ANIM_WILD_MAM', 'Mammals'),
+      n('ANIM_WILD_BIRD', 'Birds'),
+      n('ANIM_WILD_REP', 'Reptiles'),
+      n('ANIM_WILD_INS', 'Insects'),
+    ]),
+    n('ANIM_FISH', 'Fish & sea', [
+      n('ANIM_FISH_SEA', 'Sea life'),
+      n('ANIM_FISH_FRESH', 'Freshwater fish'),
+    ]),
+    n('ANIM_CARE', 'Animal care', [
+      n('ANIM_CARE_HAB', 'Habitats'),
+      n('ANIM_CARE_END', 'Endangered species'),
+    ]),
+  ]),
+  n('PEOPLE', 'People & Relationships', [
+    n('PEOPLE_FAM', 'Family', [
+      n('PEOPLE_FAM_PAR', 'Parents'),
+      n('PEOPLE_FAM_SIB', 'Siblings'),
+      n('PEOPLE_FAM_CH', 'Children'),
+      n('PEOPLE_FAM_REL', 'Relatives'),
+      n('PEOPLE_FAM_GEN', 'Generations'),
+    ]),
+    n('PEOPLE_SOC', 'Social life', [
+      n('PEOPLE_SOC_FRI', 'Friends'),
+      n('PEOPLE_SOC_DATE', 'Dating'),
+      n('PEOPLE_SOC_NEI', 'Neighbours'),
+      n('PEOPLE_SOC_PARTY', 'Parties'),
+    ]),
+    n('PEOPLE_LIFE', 'Life stages', [
+      n('PEOPLE_LIFE_CHILD', 'Childhood'),
+      n('PEOPLE_LIFE_ADULT', 'Adulthood'),
+      n('PEOPLE_LIFE_AGE', 'Ageing'),
+    ]),
+    n('PEOPLE_APP', 'Appearance', [
+      n('PEOPLE_APP_FACE', 'Face & body description'),
+      n('PEOPLE_APP_PERS', 'Personality (social)'),
+    ]),
+  ]),
+  n('TIME', 'Time & Calendar', [
+    n('TIME_DAY', 'Days', [
+      n('TIME_DAY_WK', 'Weekdays'),
+      n('TIME_DAY_MON', 'Months'),
+      n('TIME_DAY_SEA', 'Seasons'),
+      n('TIME_DAY_DATE', 'Dates'),
+    ]),
+    n('TIME_CLK', 'Clock', [
+      n('TIME_CLK_HOUR', 'Hours'),
+      n('TIME_CLK_DUR', 'Duration'),
+      n('TIME_CLK_FREQ', 'Frequency'),
+      n('TIME_CLK_TENSE', 'Past, present, future (time words)'),
+    ]),
+  ]),
+  n('TECH', 'Technology', [
+    n('TECH_COMP', 'Computers', [
+      n('TECH_COMP_PC', 'PCs'),
+      n('TECH_COMP_NET', 'Internet'),
+      n('TECH_COMP_SOFT', 'Software'),
+      n('TECH_COMP_FILE', 'Files & storage'),
+    ]),
+    n('TECH_PHONE', 'Phones', [
+      n('TECH_PHONE_MOB', 'Mobiles'),
+      n('TECH_PHONE_CALL', 'Calls & messages'),
+      n('TECH_PHONE_APP', 'Apps'),
+    ]),
+    n('TECH_DIG', 'Digital life', [
+      n('TECH_DIG_PASS', 'Passwords & accounts'),
+      n('TECH_DIG_SOC', 'Social media (tech)'),
+      n('TECH_DIG_FIX', 'Problems & repairs'),
+    ]),
+  ]),
+  n('SPORT', 'Sport', [
+    n('SPORT_TEAM', 'Team sports', [
+      n('SPORT_TEAM_FB', 'Football'),
+      n('SPORT_TEAM_BB', 'Basketball'),
+      n('SPORT_TEAM_TEN', 'Tennis (doubles)'),
+      n('SPORT_TEAM_VOL', 'Volleyball'),
+      n('SPORT_TEAM_HOCK', 'Hockey'),
+    ]),
+    n('SPORT_IND', 'Individual sports', [
+      n('SPORT_IND_RUN', 'Running'),
+      n('SPORT_IND_SWIM', 'Swimming'),
+      n('SPORT_IND_CYC', 'Cycling'),
+      n('SPORT_IND_ATH', 'Athletics'),
+      n('SPORT_IND_MA', 'Martial arts'),
+    ]),
+    n('SPORT_EVT', 'Sport events', [
+      n('SPORT_EVT_MATCH', 'Matches & scores'),
+      n('SPORT_EVT_TRAIN', 'Training'),
+      n('SPORT_EVT_EQ', 'Equipment'),
+      n('SPORT_EVT_FAN', 'Fans'),
+    ]),
+  ]),
+  n('ART', 'Arts & Culture', [
+    n('ART_MUS', 'Music', [
+      n('ART_MUS_SONG', 'Songs'),
+      n('ART_MUS_INST', 'Instruments'),
+      n('ART_MUS_PERF', 'Performance'),
+    ]),
+    n('ART_FILM', 'Film', [
+      n('ART_FILM_MOV', 'Movies'),
+      n('ART_FILM_TV', 'TV & series'),
+      n('ART_FILM_TH', 'Theatre'),
+    ]),
+    n('ART_BOOK', 'Books', [
+      n('ART_BOOK_READ', 'Reading'),
+      n('ART_BOOK_WRIT', 'Writers'),
+      n('ART_BOOK_GEN', 'Genres'),
+    ]),
+    n('ART_VIS', 'Visual art', [
+      n('ART_VIS_PAINT', 'Painting & drawing'),
+      n('ART_VIS_PHOTO', 'Photography'),
+      n('ART_VIS_MUS', 'Museums'),
+    ]),
+    n('ART_COLOR', 'Colour & shape', [
+      n('ART_COLOR_COL', 'Colours'),
+      n('ART_COLOR_GEO', 'Geometric shapes'),
+      n('ART_COLOR_PAT', 'Patterns'),
+    ]),
+  ]),
+  n('LAW', 'Law & Society', [
+    n('LAW_CRIME', 'Crime', [
+      n('LAW_CRIME_THEFT', 'Theft'),
+      n('LAW_CRIME_POL', 'Police'),
+      n('LAW_CRIME_COURT', 'Courts'),
+      n('LAW_CRIME_PUN', 'Punishment'),
+    ]),
+    n('LAW_GOV', 'Government', [
+      n('LAW_GOV_VOTE', 'Voting'),
+      n('LAW_GOV_RIGHT', 'Laws & rights'),
+      n('LAW_GOV_CIT', 'Citizenship'),
+    ]),
+    n('LAW_DAY', 'Everyday law', [
+      n('LAW_DAY_RULE', 'Rules'),
+      n('LAW_DAY_COMP', 'Complaints'),
+      n('LAW_DAY_DOC', 'Documents'),
+    ]),
+  ]),
+  n('ENV', 'Environment', [
+    n('ENV_NAT', 'Nature', [
+      n('ENV_NAT_TREE', 'Trees'),
+      n('ENV_NAT_CLI', 'Climate'),
+      n('ENV_NAT_WILD', 'Wildlife (conservation)'),
+      n('ENV_NAT_LAND', 'Landscapes'),
+    ]),
+    n('ENV_PROB', 'Environmental problems', [
+      n('ENV_PROB_POLL', 'Pollution'),
+      n('ENV_PROB_WASTE', 'Waste'),
+      n('ENV_PROB_EXT', 'Extreme weather'),
+    ]),
+    n('ENV_ACT', 'Action', [
+      n('ENV_ACT_REC', 'Recycling'),
+      n('ENV_ACT_EN', 'Energy saving'),
+      n('ENV_ACT_CONS', 'Conservation'),
+    ]),
+  ]),
+  n('TRANS', 'Transport', [
+    n('TRANS_CAR', 'Cars', [
+      n('TRANS_CAR_DRIVE', 'Driving'),
+      n('TRANS_CAR_PARK', 'Parking'),
+      n('TRANS_CAR_BRK', 'Breakdowns'),
+    ]),
+    n('TRANS_ROAD', 'Roads', [
+      n('TRANS_ROAD_HWY', 'Highways'),
+      n('TRANS_ROAD_TRAF', 'Traffic'),
+      n('TRANS_ROAD_SIGN', 'Road signs'),
+    ]),
+    n('TRANS_OTH', 'Other transport', [
+      n('TRANS_OTH_BIKE', 'Bicycles'),
+      n('TRANS_OTH_BOAT', 'Boats'),
+      n('TRANS_OTH_AIR', 'Air travel (ground side)'),
+    ]),
+  ]),
+  n('CLOTH', 'Clothes', [
+    n('CLOTH_WEAR', 'Everyday clothes', [
+      n('CLOTH_WEAR_TOP', 'Tops'),
+      n('CLOTH_WEAR_BOT', 'Bottoms'),
+      n('CLOTH_WEAR_DRESS', 'Dresses'),
+      n('CLOTH_WEAR_UND', 'Underwear'),
+      n('CLOTH_WEAR_ACC', 'Accessories'),
+    ]),
+    n('CLOTH_SHOE', 'Shoes', [n('CLOTH_SHOE_FT', 'Footwear')]),
+    n('CLOTH_STYLE', 'Style', [
+      n('CLOTH_STYLE_FORM', 'Formal wear'),
+      n('CLOTH_STYLE_SPORT', 'Sportswear'),
+      n('CLOTH_STYLE_WEATH', 'Weather wear'),
+      n('CLOTH_STYLE_FAB', 'Fabrics'),
+      n('CLOTH_STYLE_SIZE', 'Sizes'),
+    ]),
+  ]),
+  n('FEEL', 'Feelings', [
+    n('FEEL_EMO', 'Emotions', [
+      n('FEEL_EMO_HAP', 'Happiness'),
+      n('FEEL_EMO_SAD', 'Sadness'),
+      n('FEEL_EMO_ANG', 'Anger'),
+      n('FEEL_EMO_FEAR', 'Fear'),
+      n('FEEL_EMO_SURP', 'Surprise'),
+      n('FEEL_EMO_LOVE', 'Love'),
+    ]),
+    n('FEEL_ATT', 'Attitudes', [
+      n('FEEL_ATT_OP', 'Opinions'),
+      n('FEEL_ATT_PREF', 'Preference'),
+      n('FEEL_ATT_CERT', 'Certainty'),
+    ]),
+  ]),
+  n('COMM', 'Communication', [
+    n('COMM_TALK', 'Speaking', [
+      n('COMM_TALK_SAY', 'Saying'),
+      n('COMM_TALK_ASK', 'Asking'),
+      n('COMM_TALK_AGR', 'Agreeing & disagreeing'),
+      n('COMM_TALK_PHONE', 'Phone calls'),
+    ]),
+    n('COMM_WRITE', 'Writing', [
+      n('COMM_WRITE_LET', 'Letters'),
+      n('COMM_WRITE_MSG', 'Messages'),
+      n('COMM_WRITE_FORM', 'Forms'),
+      n('COMM_WRITE_STORY', 'Stories'),
+    ]),
+    n('COMM_NV', 'Non-verbal', [
+      n('COMM_NV_GEST', 'Gestures'),
+      n('COMM_NV_BODY', 'Body language'),
+    ]),
+  ]),
+  n('SCIENCE', 'Science', [
+    n('SCIENCE_BIO', 'Biology', [
+      n('SCIENCE_BIO_LIVE', 'Living things'),
+      n('SCIENCE_BIO_GEN', 'Genetics'),
+      n('SCIENCE_BIO_CELL', 'Cells'),
+      n('SCIENCE_BIO_HUM', 'Human biology'),
+      n('SCIENCE_BIO_PLANT', 'Plants (scientific)'),
+    ]),
+    n('SCIENCE_CHEM', 'Chemistry', [
+      n('SCIENCE_CHEM_ELEM', 'Elements'),
+      n('SCIENCE_CHEM_REACT', 'Reactions'),
+      n('SCIENCE_CHEM_LAB', 'Laboratory'),
+    ]),
+    n('SCIENCE_PHYS', 'Physics', [
+      n('SCIENCE_PHYS_MECH', 'Mechanics'),
+      n('SCIENCE_PHYS_EN', 'Energy'),
+      n('SCIENCE_PHYS_ELEC', 'Electricity (scientific)'),
+      n('SCIENCE_PHYS_WAVE', 'Light & sound'),
+    ]),
+    n('SCIENCE_EARTH', 'Earth science', [
+      n('SCIENCE_EARTH_GEO', 'Geology'),
+      n('SCIENCE_EARTH_ATM', 'Atmosphere'),
+    ]),
+    n('SCIENCE_ASTRO', 'Astronomy', [
+      n('SCIENCE_ASTRO_PLAN', 'Planets'),
+      n('SCIENCE_ASTRO_STAR', 'Stars'),
+      n('SCIENCE_ASTRO_TRAV', 'Space travel'),
+    ]),
+    n('SCIENCE_METH', 'Scientific method', [
+      n('SCIENCE_METH_EXP', 'Experiments'),
+      n('SCIENCE_METH_MEAS', 'Measurement (science)'),
+      n('SCIENCE_METH_TH', 'Theories'),
+    ]),
+  ]),
+  n('MATH', 'Mathematics', [
+    n('MATH_NUM', 'Number', [
+      n('MATH_NUM_WHOLE', 'Whole numbers'),
+      n('MATH_NUM_FRAC', 'Fractions & decimals'),
+      n('MATH_NUM_LARGE', 'Large numbers'),
+    ]),
+    n('MATH_OP', 'Operations', [
+      n('MATH_OP_ADD', 'Adding & subtracting'),
+      n('MATH_OP_MUL', 'Multiplying & dividing'),
+      n('MATH_OP_PCT', 'Percentages'),
+    ]),
+    n('MATH_MEAS', 'Measurement', [
+      n('MATH_MEAS_LEN', 'Length'),
+      n('MATH_MEAS_WT', 'Weight'),
+      n('MATH_MEAS_VOL', 'Volume'),
+      n('MATH_MEAS_TEMP', 'Temperature (units)'),
+    ]),
+    n('MATH_SHAPE', 'Shape & space (maths)', [
+      n('MATH_SHAPE_AREA', 'Area & perimeter'),
+      n('MATH_SHAPE_ANG', 'Angles'),
+    ]),
+    n('MATH_DATA', 'Data', [
+      n('MATH_DATA_GRAPH', 'Graphs'),
+      n('MATH_DATA_AVG', 'Averages'),
+      n('MATH_DATA_PROB', 'Probability'),
+    ]),
+  ]),
+  n('HISTORY', 'History', [
+    n('HISTORY_PER', 'Periods', [
+      n('HISTORY_PER_ANC', 'Ancient history'),
+      n('HISTORY_PER_MID', 'Middle Ages'),
+      n('HISTORY_PER_EARLY', 'Early modern'),
+      n('HISTORY_PER_MOD', 'Modern history'),
+    ]),
+    n('HISTORY_EVT', 'People & events', [
+      n('HISTORY_EVT_LEAD', 'Leaders'),
+      n('HISTORY_EVT_WAR', 'Wars (historical)'),
+      n('HISTORY_EVT_INV', 'Inventions'),
+    ]),
+    n('HISTORY_EVID', 'Evidence', [
+      n('HISTORY_EVID_ARCH', 'Archaeology'),
+      n('HISTORY_EVID_MUS', 'Museums (history)'),
+      n('HISTORY_EVID_DOC', 'Documents'),
+    ]),
+    n('HISTORY_DAY', 'Everyday past', [
+      n('HISTORY_DAY_HOME', 'Homes in the past'),
+      n('HISTORY_DAY_WORK', 'Work in the past'),
+    ]),
+  ]),
+  n('MEDIA', 'Media', [
+    n('MEDIA_NEWS', 'News', [
+      n('MEDIA_NEWS_PAPER', 'Newspapers'),
+      n('MEDIA_NEWS_HEAD', 'Headlines'),
+      n('MEDIA_NEWS_JOUR', 'Journalists'),
+    ]),
+    n('MEDIA_BCAST', 'Broadcasting', [
+      n('MEDIA_BCAST_RADIO', 'Radio'),
+      n('MEDIA_BCAST_TV', 'Television news'),
+    ]),
+    n('MEDIA_DIG', 'Digital media', [
+      n('MEDIA_DIG_WEB', 'Websites'),
+      n('MEDIA_DIG_POD', 'Podcasts'),
+      n('MEDIA_DIG_INF', 'Influencers'),
+    ]),
+    n('MEDIA_AD', 'Advertising', [
+      n('MEDIA_AD_AD', 'Adverts'),
+      n('MEDIA_AD_BRAND', 'Brands'),
+    ]),
+  ]),
+  n('HOBBIES', 'Hobbies & Leisure', [
+    n('HOBBIES_IN', 'Indoor hobbies', [
+      n('HOBBIES_IN_READ', 'Reading for pleasure'),
+      n('HOBBIES_IN_GAME', 'Games & puzzles'),
+      n('HOBBIES_IN_CRAFT', 'Crafts'),
+      n('HOBBIES_IN_COOK', 'Cooking for fun'),
+    ]),
+    n('HOBBIES_OUT', 'Outdoor hobbies', [
+      n('HOBBIES_OUT_WALK', 'Walking'),
+      n('HOBBIES_OUT_CAMP', 'Camping'),
+      n('HOBBIES_OUT_GARD', 'Gardening (leisure)'),
+    ]),
+    n('HOBBIES_CLUB', 'Collections & clubs', [
+      n('HOBBIES_CLUB_CLUB', 'Clubs'),
+      n('HOBBIES_CLUB_COL', 'Collecting'),
+    ]),
+    n('HOBBIES_FREE', 'Free time', [
+      n('HOBBIES_FREE_WKND', 'Weekends'),
+      n('HOBBIES_FREE_ENT', 'Entertainment'),
+    ]),
+  ]),
+  n('HOLIDAYS', 'Holidays & Celebrations', [
+    n('HOLIDAYS_CAL', 'Calendar festivals', [
+      n('HOLIDAYS_CAL_XMAS', 'Christmas'),
+      n('HOLIDAYS_CAL_NY', 'New Year'),
+      n('HOLIDAYS_CAL_EAST', 'Easter'),
+      n('HOLIDAYS_CAL_NAT', 'National holidays'),
+    ]),
+    n('HOLIDAYS_PER', 'Personal celebrations', [
+      n('HOLIDAYS_PER_BDAY', 'Birthdays'),
+      n('HOLIDAYS_PER_WED', 'Weddings (celebration)'),
+      n('HOLIDAYS_PER_ANN', 'Anniversaries'),
+    ]),
+    n('HOLIDAYS_CUS', 'Holiday customs', [
+      n('HOLIDAYS_CUS_GIFT', 'Gifts'),
+      n('HOLIDAYS_CUS_CARD', 'Cards'),
+      n('HOLIDAYS_CUS_FOOD', 'Food traditions'),
+    ]),
+  ]),
+  n('SAFETY', 'Safety & Emergencies', [
+    n('SAFETY_WARN', 'Warnings', [
+      n('SAFETY_WARN_DANGER', 'Danger signs'),
+      n('SAFETY_WARN_INST', 'Instructions'),
+    ]),
+    n('SAFETY_ACC', 'Accidents', [
+      n('SAFETY_ACC_AID', 'First aid'),
+      n('SAFETY_ACC_EMS', 'Emergency services'),
+    ]),
+    n('SAFETY_HOME', 'Home & street safety', [
+      n('SAFETY_HOME_FIRE', 'Fire'),
+      n('SAFETY_HOME_THEFT', 'Theft prevention'),
+      n('SAFETY_HOME_ROAD', 'Road safety (people)'),
+    ]),
+    n('SAFETY_ONL', 'Online safety', [
+      n('SAFETY_ONL_PASS', 'Passwords (safety)'),
+      n('SAFETY_ONL_SCAM', 'Scams'),
+    ]),
+  ]),
+  n('RELIGION', 'Religion & Belief', [
+    n('RELIGION_WORLD', 'World religions', [
+      n('RELIGION_WORLD_CHR', 'Christianity'),
+      n('RELIGION_WORLD_ISL', 'Islam'),
+      n('RELIGION_WORLD_JUD', 'Judaism'),
+      n('RELIGION_WORLD_HIN', 'Hinduism'),
+      n('RELIGION_WORLD_BUD', 'Buddhism'),
+    ]),
+    n('RELIGION_PRAC', 'Practice', [
+      n('RELIGION_PRAC_WOR', 'Worship'),
+      n('RELIGION_PRAC_PLACE', 'Holy places'),
+      n('RELIGION_PRAC_FEST', 'Festivals (religious)'),
+    ]),
+    n('RELIGION_BEL', 'Belief', [
+      n('RELIGION_BEL_FAITH', 'Faith'),
+      n('RELIGION_BEL_ETH', 'Ethics (religious)'),
+    ]),
+  ]),
+  n('PHILOSOPHY', 'Philosophy', [
+    n('PHILOSOPHY_IDEAS', 'Ideas', [
+      n('PHILOSOPHY_IDEAS_KNOW', 'Knowledge'),
+      n('PHILOSOPHY_IDEAS_TRUE', 'Truth'),
+      n('PHILOSOPHY_IDEAS_REAL', 'Reality'),
+    ]),
+    n('PHILOSOPHY_ETH', 'Ethics', [
+      n('PHILOSOPHY_ETH_RW', 'Right & wrong'),
+      n('PHILOSOPHY_ETH_FREE', 'Freedom'),
+    ]),
+    n('PHILOSOPHY_ARG', 'Argument', [
+      n('PHILOSOPHY_ARG_REAS', 'Reasons'),
+      n('PHILOSOPHY_ARG_DEB', 'Debate (ideas)'),
+    ]),
+  ]),
+  n('PSYCHOLOGY', 'Psychology', [
+    n('PSYCHOLOGY_MIND', 'Mind', [
+      n('PSYCHOLOGY_MIND_MEM', 'Memory'),
+      n('PSYCHOLOGY_MIND_ATT', 'Attention'),
+      n('PSYCHOLOGY_MIND_LEARN', 'Learning (mind)'),
+    ]),
+    n('PSYCHOLOGY_FEEL', 'Feelings (clinical / descriptive)', [
+      n('PSYCHOLOGY_FEEL_STRESS', 'Stress'),
+      n('PSYCHOLOGY_FEEL_MOT', 'Motivation'),
+    ]),
+    n('PSYCHOLOGY_BEH', 'Behaviour', [
+      n('PSYCHOLOGY_BEH_HAB', 'Habits'),
+      n('PSYCHOLOGY_BEH_SOC', 'Social behaviour'),
+    ]),
+    n('PSYCHOLOGY_TH', 'Therapy', [
+      n('PSYCHOLOGY_TH_COUN', 'Counselling'),
+      n('PSYCHOLOGY_TH_MH', 'Mental health conditions (careful, learner-level)'),
+    ]),
+  ]),
+  n('POLITICS', 'Politics', [
+    n('POLITICS_SYS', 'Systems', [
+      n('POLITICS_SYS_DEM', 'Democracy'),
+      n('POLITICS_SYS_PARTY', 'Parties'),
+      n('POLITICS_SYS_ELEC', 'Elections (politics)'),
+    ]),
+    n('POLITICS_POL', 'Policy', [
+      n('POLITICS_POL_ECON', 'Economy (policy)'),
+      n('POLITICS_POL_PUB', 'Public services (policy)'),
+    ]),
+    n('POLITICS_PEACE', 'Peace & diplomacy', [
+      n('POLITICS_PEACE_TREATY', 'Treaties'),
+      n('POLITICS_PEACE_IR', 'International relations'),
+      n('POLITICS_PEACE_PROT', 'Protest'),
+    ]),
+  ]),
+  n('WAR', 'Conflict & War', [
+    n('WAR_ARMED', 'Armed conflict', [
+      n('WAR_ARMED_SOL', 'Soldiers'),
+      n('WAR_ARMED_BAT', 'Battles'),
+      n('WAR_ARMED_WEP', 'Weapons'),
+    ]),
+    n('WAR_CIV', 'Civilian life', [
+      n('WAR_CIV_REF', 'Refugees'),
+      n('WAR_CIV_OCC', 'Occupation'),
+    ]),
+    n('WAR_AFTER', 'Aftermath', [
+      n('WAR_AFTER_TALK', 'Peace talks'),
+      n('WAR_AFTER_RECON', 'Reconstruction'),
+    ]),
+  ]),
+  n('CHARITY', 'Charity & Community', [
+    n('CHARITY_GIVE', 'Giving', [
+      n('CHARITY_GIVE_DON', 'Donations'),
+      n('CHARITY_GIVE_FUND', 'Fundraising'),
+    ]),
+    n('CHARITY_VOL', 'Volunteering', [
+      n('CHARITY_VOL_VOL', 'Volunteers'),
+      n('CHARITY_VOL_PROJ', 'Community projects'),
+    ]),
+    n('CHARITY_NEED', 'Social need', [
+      n('CHARITY_NEED_POV', 'Poverty'),
+      n('CHARITY_NEED_HOME', 'Homelessness'),
+      n('CHARITY_NEED_AID', 'Aid'),
+    ]),
+  ]),
+  n('TOOLS', 'Tools & Materials', [
+    n('TOOLS_HAND', 'Hand tools', [
+      n('TOOLS_HAND_HAM', 'Hammers & screwdrivers'),
+      n('TOOLS_HAND_CUT', 'Cutting tools'),
+      n('TOOLS_HAND_MEAS', 'Measuring tools'),
+    ]),
+    n('TOOLS_PWR', 'Power & workshop', [
+      n('TOOLS_PWR_MACH', 'Machines (workshop)'),
+      n('TOOLS_PWR_SAFE', 'Safety at work (tools)'),
+    ]),
+    n('TOOLS_MAT', 'Materials', [
+      n('TOOLS_MAT_METAL', 'Metal'),
+      n('TOOLS_MAT_PLASTIC', 'Plastic'),
+      n('TOOLS_MAT_FAB', 'Fabric (material)'),
+      n('TOOLS_MAT_PAPER', 'Paper'),
+      n('TOOLS_MAT_STONE', 'Stone'),
+    ]),
+    n('TOOLS_MAKE', 'Making', [
+      n('TOOLS_MAKE_BUILD', 'Building (making)'),
+      n('TOOLS_MAKE_REP', 'Repairing objects'),
+    ]),
+  ]),
+];
+
+export function flattenTree(nodes: TaxNode[]): TaxNode[] {
+  const out: TaxNode[] = [];
+  const walk = (list: TaxNode[]) => {
+    for (const node of list) {
+      out.push(node);
+      if (node.children) walk(node.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
+export function treeCodes(nodes: TaxNode[] = APPROVED_TREE): string[] {
+  return flattenTree(nodes).map((n) => n.code);
+}
+
+export function topLevelCodes(nodes: TaxNode[] = APPROVED_TREE): string[] {
+  return nodes.map((n) => n.code);
+}
+
+/** WordNet domain_topic member (lowercase) → approved category code. */
+export const WORDNET_MEMBER_TO_CODE: Record<string, string> = {
+  biology: 'SCIENCE_BIO',
+  'biological science': 'SCIENCE_BIO',
+  genetics: 'SCIENCE_BIO_GEN',
+  'genetic science': 'SCIENCE_BIO_GEN',
+  botany: 'SCIENCE_BIO_PLANT',
+  phytology: 'SCIENCE_BIO_PLANT',
+  zoology: 'SCIENCE_BIO',
+  physiology: 'SCIENCE_BIO_HUM',
+  anatomy: 'SCIENCE_BIO_HUM',
+  'general anatomy': 'SCIENCE_BIO_HUM',
+  chemistry: 'SCIENCE_CHEM',
+  'chemical science': 'SCIENCE_CHEM',
+  physics: 'SCIENCE_PHYS',
+  'natural philosophy': 'SCIENCE_PHYS',
+  electricity: 'SCIENCE_PHYS_ELEC',
+  geology: 'SCIENCE_EARTH_GEO',
+  astronomy: 'SCIENCE_ASTRO',
+  uranology: 'SCIENCE_ASTRO',
+  mathematics: 'MATH',
+  math: 'MATH',
+  maths: 'MATH',
+  arithmetic: 'MATH_OP',
+  geometry: 'MATH_SHAPE',
+  statistics: 'MATH_DATA',
+  cooking: 'FOOD_COOK',
+  cookery: 'FOOD_COOK',
+  preparation: 'FOOD_COOK',
+  music: 'ART_MUS',
+  computing: 'TECH_COMP',
+  'computer science': 'TECH_COMP',
+  law: 'LAW',
+  jurisprudence: 'LAW',
+  'sharia law': 'LAW',
+  'shariah law': 'LAW',
+  sharia: 'LAW',
+  shariah: 'LAW',
+  'islamic law': 'LAW',
+  military: 'WAR',
+  'military machine': 'WAR',
+  'war machine': 'WAR',
+  'armed forces': 'WAR',
+  'armed services': 'WAR',
+  medicine: 'HEALTH_CARE',
+  'medical specialty': 'HEALTH_CARE',
+  'practice of medicine': 'HEALTH_CARE',
+  pathology: 'HEALTH_ILL',
+  psychology: 'PSYCHOLOGY',
+  'psychological science': 'PSYCHOLOGY',
+  sport: 'SPORT',
+  athletics: 'SPORT_IND_ATH',
+  baseball: 'SPORT_TEAM',
+  'baseball game': 'SPORT_TEAM',
+  football: 'SPORT_TEAM_FB',
+  'football game': 'SPORT_TEAM_FB',
+  'american football': 'SPORT_TEAM_FB',
+  'american football game': 'SPORT_TEAM_FB',
+  golf: 'SPORT_IND',
+  'golf game': 'SPORT_IND',
+  boxing: 'SPORT_IND_MA',
+  pugilism: 'SPORT_IND_MA',
+  fisticuffs: 'SPORT_IND_MA',
+  aquatics: 'SPORT_IND_SWIM',
+  'water sport': 'SPORT_IND_SWIM',
+  gymnastics: 'SPORT_IND_ATH',
+  'gymnastic exercise': 'SPORT_IND_ATH',
+  religion: 'RELIGION',
+  faith: 'RELIGION_BEL_FAITH',
+  'religious belief': 'RELIGION_BEL_FAITH',
+  judaism: 'RELIGION_WORLD_JUD',
+  christianity: 'RELIGION_WORLD_CHR',
+  'christian religion': 'RELIGION_WORLD_CHR',
+  'christian theology': 'RELIGION_WORLD_CHR',
+  'roman catholic': 'RELIGION_WORLD_CHR',
+  'roman catholic church': 'RELIGION_WORLD_CHR',
+  'roman church': 'RELIGION_WORLD_CHR',
+  'church of rome': 'RELIGION_WORLD_CHR',
+  'western church': 'RELIGION_WORLD_CHR',
+  protestant: 'RELIGION_WORLD_CHR',
+  'protestant church': 'RELIGION_WORLD_CHR',
+  islam: 'RELIGION_WORLD_ISL',
+  hinduism: 'RELIGION_WORLD_HIN',
+  buddhism: 'RELIGION_WORLD_BUD',
+  church: 'RELIGION_PRAC_PLACE',
+  'church service': 'RELIGION_PRAC_WOR',
+  government: 'LAW_GOV',
+  politics: 'POLITICS',
+  'political science': 'POLITICS',
+  linguistics: 'EDU_LANG',
+  grammar: 'EDU_LANG_GRAM',
+  language: 'EDU_LANG',
+  'linguistic communication': 'EDU_LANG',
+  education: 'EDU',
+  'educational activity': 'EDU',
+  didactics: 'EDU',
+  pedagogy: 'EDU',
+  instruction: 'EDU',
+  art: 'ART',
+  'artistic creation': 'ART',
+  'artistic production': 'ART',
+  'performing arts': 'ART_MUS_PERF',
+  photography: 'ART_VIS_PHOTO',
+  'picture taking': 'ART_VIS_PHOTO',
+  film: 'ART_FILM',
+  movie: 'ART_FILM_MOV',
+  'motion picture': 'ART_FILM_MOV',
+  'motion-picture show': 'ART_FILM_MOV',
+  'moving picture': 'ART_FILM_MOV',
+  'moving-picture show': 'ART_FILM_MOV',
+  'picture show': 'ART_FILM_MOV',
+  drama: 'ART_FILM_TH',
+  television: 'ART_FILM_TV',
+  tv: 'ART_FILM_TV',
+  telecasting: 'MEDIA_BCAST_TV',
+  video: 'MEDIA_BCAST',
+  broadcasting: 'MEDIA_BCAST',
+  'broadcast medium': 'MEDIA_BCAST',
+  commerce: 'WORK_BIZ',
+  mercantilism: 'WORK_BIZ',
+  commercialism: 'WORK_BIZ',
+  business: 'WORK',
+  'business sector': 'WORK',
+  'business enterprise': 'WORK',
+  'commercial enterprise': 'WORK',
+  navigation: 'GEO_DIR_NAV',
+  piloting: 'GEO_DIR_NAV',
+  pilotage: 'GEO_DIR_NAV',
+  sailing: 'TRANS_OTH_BOAT',
+  seafaring: 'TRANS_OTH_BOAT',
+  driving: 'TRANS_CAR_DRIVE',
+  agriculture: 'GEO_FARM',
+  farming: 'GEO_FARM',
+  husbandry: 'GEO_FARM',
+  'animal husbandry': 'GEO_FARM_LIVE',
+  telephone: 'TECH_PHONE',
+  telephony: 'TECH_PHONE',
+  chess: 'HOBBIES_IN_GAME',
+  'chess game': 'HOBBIES_IN_GAME',
+  'card game': 'HOBBIES_IN_GAME',
+  cards: 'HOBBIES_IN_GAME',
+  archaeology: 'HISTORY_EVID_ARCH',
+  archeology: 'HISTORY_EVID_ARCH',
+  history: 'HISTORY',
+  philosophy: 'PHILOSOPHY',
+  writing: 'COMM_WRITE',
+  authorship: 'COMM_WRITE',
+  penning: 'COMM_WRITE',
+  composition: 'COMM_WRITE',
+  dance: 'ART_MUS_PERF',
+  dancing: 'ART_MUS_PERF',
+  terpsichore: 'ART_MUS_PERF',
+  saltation: 'ART_MUS_PERF',
+  contract: 'WORK_EMP_CONT',
+  building: 'TOOLS_MAKE_BUILD',
+  construction: 'TOOLS_MAKE_BUILD',
+  ceramics: 'ART_VIS',
+  boat: 'TRANS_OTH_BOAT',
+  hunting: 'HOBBIES_OUT',
+  hunt: 'HOBBIES_OUT',
+  fauna: 'ANIM',
+  animal: 'ANIM',
+  creature: 'ANIM',
+  beast: 'ANIM',
+  brute: 'ANIM',
+  'animate being': 'ANIM',
+  flora: 'SCIENCE_BIO_PLANT',
+};
+
+export type LemmaRule = {
+  kind: 'lemma';
+  lemmas: string[];
+  categoryCode: string;
+  source: 'curated-lemma';
+};
+
+export type LemmaPosRule = {
+  kind: 'lemma-pos';
+  lemmas: string[];
+  pos: string;
+  categoryCode: string;
+  source: 'lemma-pos';
+};
+
+export type GlossRule = {
+  kind: 'gloss';
+  lemmas?: string[];
+  tokens: string[];
+  categoryCode: string;
+  source: 'gloss-token';
+};
+
+export type CuratedRule = LemmaRule | LemmaPosRule | GlossRule;
+
+export type SenseLike = {
+  lemma: string;
+  pos: string;
+  definition: string;
+};
+
+export function normalizeGloss(text: string): string {
+  return ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+}
+
+export function hasWholeTokens(text: string, tokens: string[]): boolean {
+  const hay = normalizeGloss(text);
+  return tokens.every((token) => hay.includes(` ${token.toLowerCase()} `));
+}
+
+export function matchesRule(sense: SenseLike, rule: CuratedRule): boolean {
+  const lemma = sense.lemma.toLowerCase();
+  if (rule.kind === 'lemma') {
+    return rule.lemmas.includes(lemma);
+  }
+  if (rule.kind === 'lemma-pos') {
+    return rule.lemmas.includes(lemma) && sense.pos.toLowerCase() === rule.pos;
+  }
+  if (rule.lemmas && rule.lemmas.length > 0 && !rule.lemmas.includes(lemma)) {
+    return false;
+  }
+  return hasWholeTokens(sense.definition, rule.tokens);
+}
+
+export function classifyGeneratedLink(input: {
+  categoryCode: string;
+  lemma: string;
+  definition: string;
+}): 'dummy' | 'seed-pair' | 'accidental' {
+  const blob = `${input.lemma} ${input.definition}`;
+  if (DUMMY_KEYWORD_RE.test(blob)) return 'dummy';
+  const domain = input.categoryCode.split('_')[0] ?? '';
+  const pair = SEED_PAIR_BY_DOMAIN[domain];
+  if (pair && pair.some((item) => item.lemma === input.lemma.toLowerCase())) {
+    return 'seed-pair';
+  }
+  return 'accidental';
+}
+
+export type SeedPair = {
+  domain: string;
+  lemma: string;
+  categoryCode: string;
+};
+
+/** Seed words that were placed on generated *_BASICS_1 leaves. */
+export const SEED_PAIRS: SeedPair[] = [
+  { domain: 'SCIENCE', lemma: 'atom', categoryCode: 'SCIENCE_CHEM_ELEM' },
+  { domain: 'SCIENCE', lemma: 'experiment', categoryCode: 'SCIENCE_METH_EXP' },
+  { domain: 'MATH', lemma: 'number', categoryCode: 'MATH_NUM' },
+  { domain: 'MATH', lemma: 'calculate', categoryCode: 'MATH_OP' },
+  { domain: 'HISTORY', lemma: 'war', categoryCode: 'HISTORY_EVT_WAR' },
+  { domain: 'HISTORY', lemma: 'king', categoryCode: 'HISTORY_EVT_LEAD' },
+  { domain: 'MEDIA', lemma: 'news', categoryCode: 'MEDIA_NEWS' },
+  { domain: 'MEDIA', lemma: 'newspaper', categoryCode: 'MEDIA_NEWS_PAPER' },
+  { domain: 'HOBBIES', lemma: 'hobby', categoryCode: 'HOBBIES_FREE' },
+  { domain: 'HOBBIES', lemma: 'chess', categoryCode: 'HOBBIES_IN_GAME' },
+  { domain: 'HOLIDAYS', lemma: 'christmas', categoryCode: 'HOLIDAYS_CAL_XMAS' },
+  { domain: 'HOLIDAYS', lemma: 'birthday', categoryCode: 'HOLIDAYS_PER_BDAY' },
+  { domain: 'SAFETY', lemma: 'danger', categoryCode: 'SAFETY_WARN_DANGER' },
+  { domain: 'SAFETY', lemma: 'warning', categoryCode: 'SAFETY_WARN' },
+  { domain: 'WEATHER2', lemma: 'forecast', categoryCode: 'GEO_WEATH' },
+  { domain: 'WEATHER2', lemma: 'wind', categoryCode: 'GEO_WEATH_WIND' },
+  { domain: 'CITYLIFE', lemma: 'crowd', categoryCode: 'GEO_URBAN_CROWD' },
+  { domain: 'CITYLIFE', lemma: 'downtown', categoryCode: 'GEO_URBAN' },
+  { domain: 'COUNTRY', lemma: 'village', categoryCode: 'GEO_RURAL_VILL' },
+  { domain: 'COUNTRY', lemma: 'farm', categoryCode: 'GEO_FARM' },
+  { domain: 'FARM', lemma: 'crop', categoryCode: 'GEO_FARM_CROP' },
+  { domain: 'FARM', lemma: 'tractor', categoryCode: 'GEO_FARM_MACH' },
+  { domain: 'SEA', lemma: 'ocean', categoryCode: 'GEO_WATER_SEA' },
+  { domain: 'SEA', lemma: 'beach', categoryCode: 'GEO_WATER_BEACH' },
+  { domain: 'SPACE', lemma: 'planet', categoryCode: 'SCIENCE_ASTRO_PLAN' },
+  { domain: 'SPACE', lemma: 'star', categoryCode: 'SCIENCE_ASTRO_STAR' },
+  { domain: 'RELIGION', lemma: 'church', categoryCode: 'RELIGION_PRAC_PLACE' },
+  { domain: 'RELIGION', lemma: 'pray', categoryCode: 'RELIGION_PRAC_WOR' },
+  { domain: 'PHILOSOPHY', lemma: 'idea', categoryCode: 'PHILOSOPHY_IDEAS' },
+  { domain: 'PHILOSOPHY', lemma: 'thought', categoryCode: 'PHILOSOPHY_IDEAS' },
+  { domain: 'PSYCHOLOGY', lemma: 'mind', categoryCode: 'PSYCHOLOGY_MIND' },
+  { domain: 'PSYCHOLOGY', lemma: 'memory', categoryCode: 'PSYCHOLOGY_MIND_MEM' },
+  { domain: 'MEDICINE2', lemma: 'surgery', categoryCode: 'HEALTH_CARE_SURG' },
+  { domain: 'MEDICINE2', lemma: 'patient', categoryCode: 'HEALTH_CARE' },
+  { domain: 'LAW2', lemma: 'court', categoryCode: 'LAW_CRIME_COURT' },
+  { domain: 'LAW2', lemma: 'judge', categoryCode: 'LAW_CRIME_COURT' },
+  { domain: 'POLITICS', lemma: 'party', categoryCode: 'POLITICS_SYS_PARTY' },
+  { domain: 'POLITICS', lemma: 'minister', categoryCode: 'POLITICS_SYS' },
+  { domain: 'WAR', lemma: 'soldier', categoryCode: 'WAR_ARMED_SOL' },
+  { domain: 'WAR', lemma: 'battle', categoryCode: 'WAR_ARMED_BAT' },
+  { domain: 'PEACE', lemma: 'treaty', categoryCode: 'POLITICS_PEACE_TREATY' },
+  { domain: 'PEACE', lemma: 'peace', categoryCode: 'POLITICS_PEACE' },
+  { domain: 'CHARITY', lemma: 'donate', categoryCode: 'CHARITY_GIVE_DON' },
+  { domain: 'VOLUNTEER', lemma: 'volunteer', categoryCode: 'CHARITY_VOL_VOL' },
+  { domain: 'VOLUNTEER', lemma: 'charity', categoryCode: 'CHARITY' },
+  { domain: 'TOOLS', lemma: 'hammer', categoryCode: 'TOOLS_HAND_HAM' },
+  { domain: 'TOOLS', lemma: 'tool', categoryCode: 'TOOLS_HAND' },
+  { domain: 'MATERIALS', lemma: 'metal', categoryCode: 'TOOLS_MAT_METAL' },
+  { domain: 'MATERIALS', lemma: 'plastic', categoryCode: 'TOOLS_MAT_PLASTIC' },
+  { domain: 'COLORS', lemma: 'red', categoryCode: 'ART_COLOR_COL' },
+  { domain: 'COLORS', lemma: 'blue', categoryCode: 'ART_COLOR_COL' },
+  { domain: 'SHAPES', lemma: 'circle', categoryCode: 'ART_COLOR_GEO' },
+  { domain: 'SHAPES', lemma: 'square', categoryCode: 'ART_COLOR_GEO' },
+  { domain: 'NUMBERS', lemma: 'thousand', categoryCode: 'MATH_NUM_LARGE' },
+  { domain: 'NUMBERS', lemma: 'million', categoryCode: 'MATH_NUM_LARGE' },
+  { domain: 'MEASURE', lemma: 'kilogram', categoryCode: 'MATH_MEAS_WT' },
+  { domain: 'MEASURE', lemma: 'metre', categoryCode: 'MATH_MEAS_LEN' },
+];
+
+export const SEED_PAIR_BY_DOMAIN: Record<string, SeedPair[]> = SEED_PAIRS.reduce(
+  (acc, pair) => {
+    acc[pair.domain] ??= [];
+    acc[pair.domain].push(pair);
+    return acc;
+  },
+  {} as Record<string, SeedPair[]>,
+);
+
+function lemma(lemmas: string[], categoryCode: string): LemmaRule {
+  return { kind: 'lemma', lemmas, categoryCode, source: 'curated-lemma' };
+}
+
+function lemmaPos(
+  lemmas: string[],
+  pos: string,
+  categoryCode: string,
+): LemmaPosRule {
+  return { kind: 'lemma-pos', lemmas, pos, categoryCode, source: 'lemma-pos' };
+}
+
+function gloss(
+  tokens: string[],
+  categoryCode: string,
+  lemmas?: string[],
+): GlossRule {
+  return { kind: 'gloss', tokens, categoryCode, source: 'gloss-token', lemmas };
+}
+
+export const CURATED_RULES: CuratedRule[] = [
+  gloss(['institution', 'financial'], 'MONEY_BANK_ACC', ['bank']),
+  gloss(['borrow', 'money'], 'MONEY_BANK_ACC', ['bank']),
+  gloss(['financial', 'institution'], 'MONEY_BANK_ACC', ['bank']),
+  gloss(['edge', 'river'], 'GEO_LAND_RIV', ['bank']),
+  gloss(['watercourse'], 'GEO_LAND_RIV', ['bank']),
+  gloss(['cooking'], 'FOOD_COOK_BOIL', ['boil', 'boiling', 'simmer']),
+  gloss(['immersing'], 'FOOD_COOK_BOIL', ['boil', 'boiling']),
+  gloss(['stream', 'water'], 'GEO_LAND_RIV', ['river']),
+  gloss(['chemical', 'element'], 'SCIENCE_CHEM_ELEM', ['atom']),
+  gloss(['chemical'], 'SCIENCE_CHEM_ELEM', ['atom']),
+  gloss(['popular', 'vote'], 'POLITICS_SYS_ELEC', ['election']),
+  gloss(['parliament'], 'POLITICS_SYS_ELEC', ['election']),
+  gloss(['councillor'], 'POLITICS_SYS_ELEC', ['election']),
+  gloss(['unpaid', 'work'], 'CHARITY_VOL_VOL', ['volunteer', 'volunteering']),
+  gloss(['voluntary', 'work'], 'CHARITY_VOL_VOL', ['volunteer', 'volunteering']),
+  lemma(['volunteer', 'volunteering'], 'CHARITY_VOL_VOL'),
+  lemma(['donate', 'donation', 'donations'], 'CHARITY_GIVE_DON'),
+  lemma(['charity', 'charitable'], 'CHARITY'),
+  lemma(['experiment', 'experiments'], 'SCIENCE_METH_EXP'),
+  lemmaPos(['calculate', 'calculating'], 'verb', 'MATH_OP'),
+  gloss(['mathematical'], 'MATH_NUM', ['number']),
+  lemma(['newspaper', 'newspapers'], 'MEDIA_NEWS_PAPER'),
+  lemmaPos(['news'], 'noun', 'MEDIA_NEWS'),
+  lemma(['hobby', 'hobbies'], 'HOBBIES_FREE'),
+  lemma(['chess'], 'HOBBIES_IN_GAME'),
+  lemma(['christmas'], 'HOLIDAYS_CAL_XMAS'),
+  lemma(['birthday', 'birthdays'], 'HOLIDAYS_PER_BDAY'),
+  lemma(['warning', 'warnings'], 'SAFETY_WARN'),
+  lemma(['danger'], 'SAFETY_WARN_DANGER'),
+  lemma(['forecast'], 'GEO_WEATH'),
+  lemmaPos(['wind'], 'noun', 'GEO_WEATH_WIND'),
+  lemma(['downtown'], 'GEO_URBAN'),
+  lemma(['crowd', 'crowds'], 'GEO_URBAN_CROWD'),
+  lemma(['village', 'villages'], 'GEO_RURAL_VILL'),
+  lemmaPos(['farm'], 'noun', 'GEO_FARM'),
+  lemma(['crop', 'crops'], 'GEO_FARM_CROP'),
+  lemma(['tractor', 'tractors'], 'GEO_FARM_MACH'),
+  lemma(['ocean', 'oceans'], 'GEO_WATER_SEA'),
+  lemma(['beach', 'beaches'], 'GEO_WATER_BEACH'),
+  lemma(['planet', 'planets'], 'SCIENCE_ASTRO_PLAN'),
+  lemma(['church', 'churches'], 'RELIGION_PRAC_PLACE'),
+  lemmaPos(['pray', 'praying'], 'verb', 'RELIGION_PRAC_WOR'),
+  lemma(['surgery'], 'HEALTH_CARE_SURG'),
+  lemma(['patient', 'patients'], 'HEALTH_CARE'),
+  lemma(['court', 'courts'], 'LAW_CRIME_COURT'),
+  lemma(['judge', 'judges'], 'LAW_CRIME_COURT'),
+  lemma(['soldier', 'soldiers'], 'WAR_ARMED_SOL'),
+  lemma(['battle', 'battles'], 'WAR_ARMED_BAT'),
+  lemma(['treaty', 'treaties'], 'POLITICS_PEACE_TREATY'),
+  lemmaPos(['peace'], 'noun', 'POLITICS_PEACE'),
+  lemma(['hammer', 'hammers'], 'TOOLS_HAND_HAM'),
+  lemma(['screwdriver', 'screwdrivers'], 'TOOLS_HAND_HAM'),
+  lemmaPos(['metal'], 'noun', 'TOOLS_MAT_METAL'),
+  lemmaPos(['plastic'], 'noun', 'TOOLS_MAT_PLASTIC'),
+  lemma(['thousand', 'million', 'billion'], 'MATH_NUM_LARGE'),
+  lemma(['kilogram', 'kilograms', 'kilo'], 'MATH_MEAS_WT'),
+  lemma(['metre', 'meter', 'metres', 'meters'], 'MATH_MEAS_LEN'),
+  lemma(['democracy'], 'POLITICS_SYS_DEM'),
+  lemma(['election', 'elections'], 'POLITICS_SYS_ELEC'),
+  lemma(['refugee', 'refugees'], 'WAR_CIV_REF'),
+  lemma(['astronomy'], 'SCIENCE_ASTRO'),
+  lemma(['geology'], 'SCIENCE_EARTH_GEO'),
+  lemma(['genetics'], 'SCIENCE_BIO_GEN'),
+  lemma(['molecule', 'molecules'], 'SCIENCE_CHEM'),
+  lemma(['laboratory', 'lab'], 'SCIENCE_CHEM_LAB'),
+  lemma(['hostel', 'hostels'], 'TRAVEL_ACC_HOST'),
+  lemma(['campsite', 'campsites'], 'TRAVEL_ACC_CAMP'),
+  lemma(['passport', 'passports'], 'TRAVEL_DOCS_PASS'),
+  lemma(['taxi', 'taxis', 'cab'], 'TRAVEL_PUB_TAXI'),
+  lemma(['luggage', 'suitcase', 'suitcases'], 'TRAVEL_PACK_LUG'),
+  lemma(['snack', 'snacks'], 'FOOD_MEAL_SNACK'),
+  lemma(['recipe', 'recipes'], 'FOOD_COOK_REC'),
+  lemma(['bake', 'baking'], 'FOOD_COOK_BAKE'),
+  lemma(['grill', 'grilling'], 'FOOD_COOK_GRILL'),
+  lemma(['steam', 'steaming'], 'FOOD_COOK_STEAM'),
+  lemma(['vegetarian', 'vegan'], 'FOOD_TASTE_VEG'),
+  lemma(['colleague', 'colleagues'], 'WORK_PEOPLE_COL'),
+  lemma(['homework'], 'EDU_SCH_HW'),
+  lemma(['pronunciation'], 'EDU_LANG_PRON'),
+  lemma(['library', 'libraries'], 'EDU_STUDY_LIB'),
+  lemma(['pharmacy', 'pharmacist'], 'HEALTH_CARE_PHARM'),
+  lemma(['hygiene'], 'HEALTH_LIVE_HYG'),
+  lemma(['currency'], 'MONEY_PAY_CUR'),
+  lemma(['desert', 'deserts'], 'GEO_LAND_DES'),
+  lemma(['island', 'islands'], 'GEO_LAND_ISL'),
+  lemma(['valley', 'valleys'], 'GEO_LAND_VAL'),
+  lemma(['lake', 'lakes'], 'GEO_WATER_LAKE'),
+  lemma(['continent', 'continents'], 'GEO_WORLD_CONT'),
+  lemma(['reptile', 'reptiles'], 'ANIM_WILD_REP'),
+  lemma(['insect', 'insects'], 'ANIM_WILD_INS'),
+  lemma(['habitat', 'habitats'], 'ANIM_CARE_HAB'),
+  lemma(['january', 'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december'], 'TIME_DAY_MON'),
+  lemma(['software'], 'TECH_COMP_SOFT'),
+  lemma(['volleyball'], 'SPORT_TEAM_VOL'),
+  lemma(['hockey'], 'SPORT_TEAM_HOCK'),
+  lemma(['cycling'], 'SPORT_IND_CYC'),
+  lemma(['museum', 'museums'], 'ART_VIS_MUS'),
+  lemma(['recycling'], 'ENV_ACT_REC'),
+  lemma(['pollution'], 'ENV_PROB_POLL'),
+  lemma(['bicycle', 'bicycles', 'bike'], 'TRANS_OTH_BIKE'),
+  lemma(['anger'], 'FEEL_EMO_ANG'),
+  lemma(['gesture', 'gestures'], 'COMM_NV_GEST'),
+  lemma(['podcast', 'podcasts'], 'MEDIA_DIG_POD'),
+  lemma(['advert', 'adverts', 'advertisement'], 'MEDIA_AD_AD'),
+  lemma(['philosophy'], 'PHILOSOPHY'),
+  lemma(['memory'], 'PSYCHOLOGY_MIND_MEM'),
+  gloss(['monarch'], 'HISTORY_EVT_LEAD', ['king']),
+  gloss(['ruler'], 'HISTORY_EVT_LEAD', ['king']),
+  gloss(['armed'], 'HISTORY_EVT_WAR', ['war']),
+  gloss(['warfare'], 'HISTORY_EVT_WAR', ['war']),
+  gloss(['celestial'], 'SCIENCE_ASTRO_STAR', ['star']),
+  gloss(['luminous'], 'SCIENCE_ASTRO_STAR', ['star']),
+  gloss(['political'], 'POLITICS_SYS_PARTY', ['party']),
+  gloss(['government'], 'POLITICS_SYS', ['minister']),
+  gloss(['philosophical'], 'PHILOSOPHY_IDEAS', ['idea', 'thought']),
+];
