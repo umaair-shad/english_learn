@@ -1,6 +1,7 @@
 # Client status — please confirm the next step
 
 **Date:** 13 September 2026  
+**Update:** You asked to proceed with AWS production, full database load, real topics, and placeholder removal. That work is now in progress (see `docs/deployment-production.md`). This file stays the status snapshot from before that go-ahead.  
 **Product:** English–Polish teacher / student learning platform  
 **Purpose:** One honest report of what is built, what the data actually contains, whether your latest category request is met, and what we need you to confirm before we do more work.
 

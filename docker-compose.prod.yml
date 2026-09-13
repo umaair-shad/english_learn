@@ -1,0 +1,67 @@
+# Production stack: Caddy (HTTPS) → Next.js + NestJS.
+# Postgres is expected to be RDS (set DATABASE_URL) or the optional `postgres` service.
+#
+#   cp deploy/prod.env.example deploy/prod.env
+#   docker compose -f docker-compose.prod.yml --env-file deploy/prod.env up -d --build
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        API_BACKEND_URL: http://api:3000
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api/v1
+    restart: unless-stopped
+    environment:
+      API_BACKEND_URL: http://api:3000
+      NEXT_PUBLIC_API_URL: https://${DOMAIN}/api/v1
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
+      PORT: "3000"
+      COOKIE_SECURE: "true"
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    profiles: ["local-db"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vocab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vocab}
+      POSTGRES_DB: ${POSTGRES_DB:-vocabulary}
+    volumes:
+      - vocab_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vocab} -d ${POSTGRES_DB:-vocabulary}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vocab_pgdata:
+  caddy_data:
+  caddy_config:

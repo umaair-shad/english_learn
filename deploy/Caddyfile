@@ -1,0 +1,19 @@
+{
+	email {$CADDY_EMAIL:admin@localhost}
+}
+
+{$DOMAIN:localhost} {
+	encode gzip
+
+	handle /socket.io* {
+		reverse_proxy api:3000
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		reverse_proxy web:3001
+	}
+}

@@ -10,7 +10,7 @@ Use this file when switching editors. Read it first, then update the date and re
 
 ## Status
 
-**Product features are locally complete. UI refresh, shared pagination, and client-confirmed collections/find-words landed 2026-09-13. API e2e is green (118/118). Production deploy is still open.**
+**Client confirmed AWS + full DB + real topics + drop placeholders (2026-09-13).** Find-words now matches `sense_topics`. Sidecar/full load/AWS compose are in progress. E2E last green: 118/118.
 
 | Area | State |
 |---|---|

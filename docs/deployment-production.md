@@ -126,11 +126,48 @@ milestone). Security cases covered: 401 on unauthenticated calls, teacher
 ownership scoping on exports and reports, no secrets/credentials in exported
 files, student token isolation.
 
-## Reverse proxy & TLS (recommended)
+## AWS production (EC2 + Caddy HTTPS)
+
+One Ubuntu EC2 box can run the whole stack. Open ports **22, 80, 443**. Point the
+domain A-record at the instance public IP.
+
+1. Copy `deploy/prod.env.example` → `deploy/prod.env` and set `DOMAIN`,
+   `JWT_SECRET`, DB password, and teacher seed.
+2. On the instance:
+   ```bash
+   bash deploy/aws-ec2.sh
+   ```
+   That builds `docker-compose.prod.yml`: Caddy → web `:3001` + api `:3000`.
+   Use `--profile local-db` (already in the script) for Postgres on the same box,
+   or drop the profile and set `DATABASE_URL` to **RDS**.
+3. Set `COOKIE_SECURE=true` (already set in the compose file).
+4. Seed the teacher:
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file deploy/prod.env exec api \
+     node -e "console.log('use npm run seed:teacher from a one-off container with the env file')"
+   ```
+   From the repo, with the same env: `cd apps/api && npm run seed:teacher`.
+5. Load vocabulary (do **not** re-run the 24 GB Wiktextract extract):
+   ```powershell
+   python -m vocabulary_pipeline.cli extract-topics
+   python -m vocabulary_pipeline.cli apply-topics
+   python -m vocabulary_pipeline.cli load-postgres --force
+   python -m vocabulary_pipeline.cli apply-topics
+   ```
+   First `apply-topics` attaches topics and removes `actions 1` placeholders on
+   the current DB. `load-postgres --force` merges the full processed catalog
+   (`~1.4M` entries / `~1.7M` senses) with `ON CONFLICT DO NOTHING`. Run
+   `apply-topics` again after the full load so new senses get topic tags.
+6. Health: `https://YOUR_DOMAIN/api/v1/health`
+
+Caddy terminates TLS and proxies `/api/*` and `/socket.io*` to the API so the
+login cookie and live monitor stay on one origin.
+
+## Reverse proxy & TLS (manual)
 
 Put a TLS-terminating proxy (nginx/Caddy/traefik) in front of the Next.js app
 and forward `/api/*` and WebSocket upgrades to the API. Keep a single origin so
-the `__Host` httpOnly cookie works:
+the auth cookie works:
 
 - `/<everything>` -> Next.js (`:3001`)
 - `/api/*` -> API (`:3000`) (or rely on next rewrites and proxy only :3001)

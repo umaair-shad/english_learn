@@ -38,6 +38,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_validate(cfg, args)
     if args.command == "load-postgres":
         return cmd_load(cfg, args)
+    if args.command == "extract-topics":
+        return cmd_extract_topics(cfg, args)
+    if args.command == "apply-topics":
+        return cmd_apply_topics(cfg, args)
     if args.command == "report":
         return cmd_report(cfg, args)
     if args.command == "export":
@@ -73,6 +77,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_load = sub.add_parser("load-postgres", help="bulk load processed data into PostgreSQL")
     p_load.add_argument("--dry-run", action="store_true")
     p_load.add_argument("--force", action="store_true", help="skip the idempotency fingerprint check")
+
+    p_topics = sub.add_parser(
+        "extract-topics",
+        help="thin sidecar: Wiktextract topics/categories from the existing raw dump",
+    )
+    p_topics.add_argument("--resume", action="store_true")
+
+    p_apply = sub.add_parser(
+        "apply-topics",
+        help="attach sidecar + WordNet domains to senses and remove placeholder categories",
+    )
+    p_apply.add_argument(
+        "--keep-placeholders",
+        action="store_true",
+        help="do not delete generated actions 1 / basics 1 rows",
+    )
 
     sub.add_parser("report", help="regenerate reports only")
 
@@ -162,6 +182,20 @@ def cmd_validate(cfg, args) -> int:
     from .pipeline.validate import run
 
     run(Manifest(cfg.staging_dir / "manifest.json"), cfg)
+    return 0
+
+
+def cmd_extract_topics(cfg, args) -> int:
+    from .pipeline.extract_topics import extract_topics
+
+    extract_topics(cfg, resume=args.resume)
+    return 0
+
+
+def cmd_apply_topics(cfg, args) -> int:
+    from .pipeline.apply_topics import apply_topics
+
+    apply_topics(cfg, retire_placeholders=not args.keep_placeholders)
     return 0
 
 

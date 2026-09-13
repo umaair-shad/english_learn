@@ -146,6 +146,18 @@ model translations {
   @@index([normalized_text], map: "idx_translations_normalized_text")
 }
 
+model sense_topics {
+  id                  BigInt            @id @default(autoincrement())
+  vocabulary_sense_id BigInt
+  topic               String            @db.VarChar(128)
+  source              String            @db.VarChar(32)
+  vocabulary_senses   vocabulary_senses @relation(fields: [vocabulary_sense_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([vocabulary_sense_id, topic, source])
+  @@index([vocabulary_sense_id], map: "idx_sense_topics_sense")
+  @@index([topic], map: "idx_sense_topics_topic")
+}
+
 model vocabulary_category_assignments {
   id                  BigInt              @id @default(autoincrement())
   vocabulary_sense_id BigInt
@@ -219,6 +231,7 @@ model vocabulary_senses {
   vocabulary_review_history       vocabulary_review_history[]
   vocabulary_entries              vocabulary_entries                @relation(fields: [vocabulary_entry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vocabulary_set_items            vocabulary_set_items[]
+  sense_topics                    sense_topics[]
 
   @@unique([vocabulary_entry_id, position])
   @@index([vocabulary_entry_id], map: "idx_senses_entry")

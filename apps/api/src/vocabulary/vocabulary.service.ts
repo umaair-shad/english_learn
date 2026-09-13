@@ -94,11 +94,19 @@ export function buildWhereSql(
 
   if (dto.category && dto.category.trim().length > 0) {
     const pattern = `%${dto.category.trim()}%`;
-    clauses.push(Prisma.sql`EXISTS (
-      SELECT 1 FROM vocabulary_category_assignments vca
-      JOIN categories cat ON cat.id = vca.category_id
-      WHERE vca.vocabulary_sense_id = s.id
-        AND (cat.code ILIKE ${pattern} OR cat.name ILIKE ${pattern})
+    clauses.push(Prisma.sql`(
+      EXISTS (
+        SELECT 1 FROM sense_topics st
+        WHERE st.vocabulary_sense_id = s.id
+          AND st.topic ILIKE ${pattern}
+      )
+      OR EXISTS (
+        SELECT 1 FROM vocabulary_category_assignments vca
+        JOIN categories cat ON cat.id = vca.category_id
+        WHERE vca.vocabulary_sense_id = s.id
+          AND (cat.code ILIKE ${pattern} OR cat.name ILIKE ${pattern})
+          AND cat.name !~* '^(basics|people|places|actions|things|problems|skills|events) [1-4]$'
+      )
     )`);
   }
 
@@ -137,10 +145,16 @@ export function buildWhereSql(
           AND t.normalized_text ILIKE ${pattern}
       )
       OR EXISTS (
+        SELECT 1 FROM sense_topics st
+        WHERE st.vocabulary_sense_id = s.id
+          AND st.topic ILIKE ${pattern}
+      )
+      OR EXISTS (
         SELECT 1 FROM vocabulary_category_assignments vca
         JOIN categories cat ON cat.id = vca.category_id
         WHERE vca.vocabulary_sense_id = s.id
           AND (cat.code ILIKE ${pattern} OR cat.name ILIKE ${pattern})
+          AND cat.name !~* '^(basics|people|places|actions|things|problems|skills|events) [1-4]$'
       )
     )`);
   }
@@ -242,16 +256,24 @@ export class VocabularyService {
       parentId: number | null;
     }>
   > {
+    const placeholder =
+      /^(basics|people|places|actions|things|problems|skills|events) [1-4]$/i;
+    const generatedChild =
+      /_(BASICS|PEOPLE|PLACES|ACTIONS|THINGS|PROBLEMS|SKILLS|EVENTS)(_[1-4])?$/;
     const rows = await this.client.categories.findMany({
       orderBy: [{ parent_id: 'asc' }, { name: 'asc' }],
       select: { id: true, code: true, name: true, parent_id: true },
     });
-    return rows.map((r) => ({
-      id: Number(r.id),
-      code: r.code,
-      name: r.name,
-      parentId: r.parent_id === null ? null : Number(r.parent_id),
-    }));
+    return rows
+      .filter(
+        (r) => !placeholder.test(r.name.trim()) && !generatedChild.test(r.code),
+      )
+      .map((r) => ({
+        id: Number(r.id),
+        code: r.code,
+        name: r.name,
+        parentId: r.parent_id === null ? null : Number(r.parent_id),
+      }));
   }
 
   async detail(id: number): Promise<VocabularyDetailEntry> {
@@ -295,6 +317,25 @@ export class VocabularyService {
 
     if (!entry) {
       throw new NotFoundException(`Vocabulary entry ${id} not found`);
+    }
+
+    const senseIds = entry.vocabulary_senses.map((s) => s.id);
+    const topicRows =
+      senseIds.length === 0
+        ? []
+        : await this.client.$queryRaw<
+            Array<{ vocabulary_sense_id: bigint; topic: string }>
+          >`
+            SELECT vocabulary_sense_id, topic
+            FROM sense_topics
+            WHERE vocabulary_sense_id IN (${Prisma.join(senseIds)})
+          `;
+    const topicsBySense = new Map<string, Array<{ code: string; name: string }>>();
+    for (const row of topicRows) {
+      const key = String(row.vocabulary_sense_id);
+      const list = topicsBySense.get(key) ?? [];
+      list.push({ code: row.topic, name: row.topic });
+      topicsBySense.set(key, list);
     }
 
     return {
@@ -351,7 +392,18 @@ export class VocabularyService {
           confidence: w.confidence,
           score: w.score === null ? null : Number(w.score),
         })),
-        categories: s.vocabulary_category_assignments.map((a) => a.categories),
+        categories: [
+          ...s.vocabulary_category_assignments
+            .map((a) => a.categories)
+            .filter(
+              (c) =>
+                c &&
+                !/^(basics|people|places|actions|things|problems|skills|events) [1-4]$/i.test(
+                  c.name,
+                ),
+            ),
+          ...(topicsBySense.get(String(s.id)) ?? []),
+        ],
       })),
     };
   }
